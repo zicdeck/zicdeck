@@ -1,166 +1,133 @@
-"use client";
-
-import {
-  Authenticated,
-  Unauthenticated,
-  useMutation,
-  useQuery,
-} from "convex/react";
-import { api } from "../convex/_generated/api";
 import Link from "next/link";
-import { SignUpButton } from "@clerk/nextjs";
-import { SignInButton } from "@clerk/nextjs";
-import { UserButton } from "@clerk/nextjs";
+import { ArrowRight } from "lucide-react";
+import { CapabilitiesSection } from "@/components/sections/capabilities-section";
+import { HowItWorksSection } from "@/components/sections/how-it-works-section";
+import { SecuritySection } from "@/components/sections/security-section";
+import { ShowcaseSection } from "@/components/sections/showcase-section";
+import { UseCasesSection } from "@/components/sections/use-cases-section";
+import { IntegrationsSection } from "@/components/sections/integrations-section";
+import { PricingSection } from "@/components/sections/pricing-section";
+import { FAQSection } from "@/components/sections/faq-section";
+import { FinalCTASection } from "@/components/sections/final-cta-section";
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { ChatComposer } from "@/components/ChatComposer";
+import { RotatingWord } from "@/components/RotatingWord";
+import Image from "next/image";
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        Convex + Next.js + Clerk
-        <UserButton />
-      </header>
-      <main className="p-8 flex flex-col gap-8">
-        <h1 className="text-4xl font-bold text-center">
-          Convex + Next.js + Clerk
-        </h1>
-        <Authenticated>
-          <Content />
-        </Authenticated>
-        <Unauthenticated>
-          <SignInForm />
-        </Unauthenticated>
-      </main>
-    </>
-  );
-}
+    <div className="min-h-screen overflow-x-clip bg-[var(--paper)] text-[var(--ink)] selection:bg-[var(--accent-soft)] selection:text-[var(--accent)]">
+      <Navbar />
 
-function SignInForm() {
-  return (
-    <div className="flex flex-col gap-8 w-96 mx-auto">
-      <p>Log in to see the numbers</p>
-      <SignInButton mode="modal">
-        <button className="bg-foreground text-background px-4 py-2 rounded-md">
-          Sign in
-        </button>
-      </SignInButton>
-      <SignUpButton mode="modal">
-        <button className="bg-foreground text-background px-4 py-2 rounded-md">
-          Sign up
-        </button>
-      </SignUpButton>
-    </div>
-  );
-}
+      <main>
+        <section className="mx-auto max-w-6xl px-5 pb-20 pt-16 text-center sm:px-8 sm:pt-24 lg:pb-28 lg:pt-28">
+          <div className="mx-auto flex max-w-4xl flex-col items-center relative">
+            <div className="absolute w-[120%] h-[110px] rounded-[120%] top-[-10px] bg-accent/40 blur-[100px] animate-fade-in"></div>
 
-function Content() {
-  const { viewer, numbers } =
-    useQuery(api.myFunctions.listNumbers, {
-      count: 10,
-    }) ?? {};
-  const addNumber = useMutation(api.myFunctions.addNumber);
+            <div className="relative z-[] mx-auto flex flex-col items-center w-full">
+              <div
+                role="button"
+                className="relative z-10 flex shrink-0 cursor-pointer items-center w-fit mx-auto gap-6 rounded-full border border-black/10 p-1 transition-colors hover:bg-black/4 animate-fade-in-up delay-75"
+              >
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="flex shrink-0 items-center justify-center rounded-full bg-white px-2 py-1.5 text-xs font-medium font-['Inter'] leading-4">
+                    <span className="bg-linear-to-r from-accent to-muted bg-clip-text text-transparent">
+                      New Feature
+                    </span>
+                  </span>
 
-  if (viewer === undefined || numbers === undefined) {
-    return (
-      <div className="mx-auto">
-        <p>loading... (consider a loading skeleton)</p>
-      </div>
-    );
-  }
+                  <span className="shrink-0 whitespace-nowrap text-xs font-medium font-['Inter'] leading-normal text-default">
+                    PDF to Slides, build in chat
+                  </span>
+                </div>
 
-  return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      <p>Welcome {viewer ?? "Anonymous"}!</p>
-      <p>
-        Click the button below and open this page in another window - this data
-        is persisted in the Convex cloud database!
-      </p>
-      <p>
-        <button
-          className="bg-foreground text-background text-sm px-4 py-2 rounded-md"
-          onClick={() => {
-            void addNumber({ value: Math.floor(Math.random() * 10) });
-          }}
-        >
-          Add a random number
-        </button>
-      </p>
-      <p>
-        Numbers:{" "}
-        {numbers?.length === 0
-          ? "Click the button!"
-          : (numbers?.join(", ") ?? "...")}
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          convex/myFunctions.ts
-        </code>{" "}
-        to change your backend
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          app/page.tsx
-        </code>{" "}
-        to change your frontend
-      </p>
-      <p>
-        See the{" "}
-        <Link href="/server" className="underline hover:no-underline">
-          /server route
-        </Link>{" "}
-        for an example of loading data in a server component
-      </p>
-      <div className="flex flex-col">
-        <p className="text-lg font-bold">Useful resources:</p>
-        <div className="flex gap-2">
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Convex docs"
-              description="Read comprehensive documentation for all Convex features."
-              href="https://docs.convex.dev/home"
-            />
-            <ResourceCard
-              title="Stack articles"
-              description="Learn about best practices, use cases, and more from a growing
-            collection of articles, videos, and walkthroughs."
-              href="https://www.typescriptlang.org/docs/handbook/2/basic-types.html"
-            />
+                <div className="flex shrink-0 items-center justify-center rounded-full bg-bg-black-6 p-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="lucide lucide-arrow-right size-4 text-mute"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+              <h1 className="mt-7 max-w-4xl font-display text-5xl font-semibold leading-[1.01] tracking-[-0.065em] text-[var(--ink)] sm:text-6xl md:text-7xl lg:text-[80px] animate-fade-in-up delay-150">
+                Make every slide feel{" "}
+                <RotatingWord
+                  className="text-[var(--accent)]"
+                  words={["ready.", "polished.", "flawless.", "confident.", "compelling.", "effortless."]}
+                  interval={3000}
+                />
+              </h1>
+              <ChatComposer className="mt-8 w-full max-w-2xl text-left animate-fade-in-up delay-250" />
+              <div className="mt-6 flex flex-col items-center gap-2.5 sm:flex-row animate-fade-in-up delay-300">
+                <Link href="/sign-up" className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-full bg-[var(--accent)] px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#254ecc]">
+                  Get started <ArrowRight className="size-3.5" />
+                </Link>
+                <a href="#product" className="inline-flex h-8.5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-xs font-medium text-[var(--ink)] transition-colors hover:bg-white">
+                  See it in action
+                </a>
+              </div>
+              <p className="mt-3 text-xs text-[var(--muted)] animate-fade-in delay-400">Built for PowerPoint and Google Slides teams.</p>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Templates"
-              description="Browse our collection of templates to get started quickly."
-              href="https://www.convex.dev/templates"
-            />
-            <ResourceCard
-              title="Discord"
-              description="Join our developer community to ask questions, trade tips & tricks,
-            and show off your projects."
-              href="https://www.convex.dev/community"
-            />
+
+          <div id="product" className="relative mx-auto mt-16 max-w-5xl text-left sm:mt-20 animate-scale-in delay-500">
+            <div className="absolute inset-x-4 -inset-y-6 -z-10 rounded-[2rem] bg-[radial-gradient(ellipse_at_center,rgba(47,94,255,0.13),transparent_67%)] blur-2xl" />
+            <div className="w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+              <video
+                src="/hero-video.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
+        </section>
+
+        {/* Divider */}
+        <div className="w-full flex items-center gap-[30px] py-[25px] animate-fade-in delay-600">
+          <div className="grow-[1] h-[1px] bg-border"></div>
+          <div className="w-[20px]">
+            <Image className="opacity-20" src='/logo.svg' width={20} height={20} alt="Zicdeck" />
+          </div>
+          <div className="grow-[1] h-[1px] bg-border"></div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function ResourceCard({
-  title,
-  description,
-  href,
-}: {
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2 bg-slate-200 dark:bg-slate-800 p-4 rounded-md h-28 overflow-auto">
-      <a href={href} className="text-sm underline hover:no-underline">
-        {title}
-      </a>
-      <p className="text-xs">{description}</p>
+        <CapabilitiesSection />
+
+        <HowItWorksSection />
+
+        <SecuritySection />
+
+        <ShowcaseSection />
+
+        <UseCasesSection />
+
+        <IntegrationsSection />
+
+        {/* TODO: add social-proof-section.tsx here once we have real customer logos or testimonials — do not fake this section */}
+
+        <PricingSection />
+
+        <FAQSection />
+
+        <FinalCTASection />
+      </main>
+
+      <Footer />
     </div>
   );
 }
