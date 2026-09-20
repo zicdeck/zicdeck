@@ -41,7 +41,7 @@ export function ChatComposer({
   defaultValue = "",
   onChange,
   onSubmit,
-  placeholder = "Ask Zicdeck anything, @ to add deck or context, / for slide commands...",
+  placeholder = "Ask ZicDeck anything, @ to add deck or context, / for slide commands...",
   models = DEFAULT_MODELS,
   selectedModel: controlledModel,
   defaultModel,

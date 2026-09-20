@@ -19,8 +19,9 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
 
-  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-display: var(--font-geist), sans-serif;
   --font-sans: var(--font-inter), sans-serif;
+  --font-space-grotesk: var(--font-space-grotesk), sans-serif;
 }
 
 body {
@@ -32,6 +33,10 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-geist), sans-serif;
+}
+
+.font-space-grotesk {
   font-family: var(--font-space-grotesk), sans-serif;
 }
 

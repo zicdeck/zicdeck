@@ -53,7 +53,7 @@ export function Navbar() {
       >
         <div className="relative z-10 mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="font-display text-xl font-semibold tracking-[-0.04em]" onClick={closeMenu}>
-            Zicdeck
+            ZicDeck
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-[var(--muted)] md:flex" aria-label="Primary navigation">

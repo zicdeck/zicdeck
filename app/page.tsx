@@ -1,18 +1,13 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { CapabilitiesSection } from "@/components/sections/capabilities-section";
-import { HowItWorksSection } from "@/components/sections/how-it-works-section";
-import { SecuritySection } from "@/components/sections/security-section";
-import { ShowcaseSection } from "@/components/sections/showcase-section";
-import { UseCasesSection } from "@/components/sections/use-cases-section";
-import { IntegrationsSection } from "@/components/sections/integrations-section";
 import { PricingSection } from "@/components/sections/pricing-section";
 import { FAQSection } from "@/components/sections/faq-section";
-import { FinalCTASection } from "@/components/sections/final-cta-section";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ChatComposer } from "@/components/ChatComposer";
 import { RotatingWord } from "@/components/RotatingWord";
+import { FadeUp } from "@/components/ui/fade-up";
 import Image from "next/image";
 
 export default function LandingPage() {
@@ -66,7 +61,7 @@ export default function LandingPage() {
                 <RotatingWord
                   className="text-[var(--accent)]"
                   words={["ready.", "polished.", "flawless.", "confident.", "compelling.", "effortless."]}
-                  interval={3000}
+                  interval={2000}
                 />
               </h1>
               <ChatComposer className="mt-8 w-full max-w-2xl text-left animate-fade-in-up delay-250" />
@@ -82,7 +77,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div id="product" className="relative mx-auto mt-16 max-w-5xl text-left sm:mt-20 animate-scale-in delay-500">
+          <FadeUp delay={0.2} className="relative mx-auto mt-16 max-w-5xl text-left sm:mt-20" id="product">
             <div className="absolute inset-x-4 -inset-y-6 -z-10 rounded-[2rem] bg-[radial-gradient(ellipse_at_center,rgba(47,94,255,0.13),transparent_67%)] blur-2xl" />
             <div className="w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
               <video
@@ -94,37 +89,23 @@ export default function LandingPage() {
                 className="h-full w-full object-cover"
               />
             </div>
-          </div>
+          </FadeUp>
         </section>
 
         {/* Divider */}
-        <div className="w-full flex items-center gap-[30px] py-[25px] animate-fade-in delay-600">
+        <FadeUp delay={0.1} className="w-full flex items-center gap-[30px] py-[25px]">
           <div className="grow-[1] h-[1px] bg-border"></div>
           <div className="w-[20px]">
-            <Image className="opacity-20" src='/logo.svg' width={20} height={20} alt="Zicdeck" />
+            <Image className="opacity-20" src='/logo.svg' width={20} height={20} alt="ZicDeck" />
           </div>
           <div className="grow-[1] h-[1px] bg-border"></div>
-        </div>
+        </FadeUp>
 
         <CapabilitiesSection />
-
-        <HowItWorksSection />
-
-        <SecuritySection />
-
-        <ShowcaseSection />
-
-        <UseCasesSection />
-
-        <IntegrationsSection />
-
-        {/* TODO: add social-proof-section.tsx here once we have real customer logos or testimonials — do not fake this section */}
 
         <PricingSection />
 
         <FAQSection />
-
-        <FinalCTASection />
       </main>
 
       <Footer />

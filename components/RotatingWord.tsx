@@ -20,7 +20,7 @@ const DEFAULT_WORDS = [
 
 export function RotatingWord({
   words = DEFAULT_WORDS,
-  interval = 3000,
+  interval = 2000,
   className,
 }: RotatingWordProps) {
   const [currentIndex, setCurrentIndex] = useState(0);

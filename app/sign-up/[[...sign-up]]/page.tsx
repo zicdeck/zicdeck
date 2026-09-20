@@ -8,9 +8,9 @@ export default function SignUpPage() {
       <div className="mb-8 text-center">
         <Link
           href="/"
-          className="font-display text-2xl font-semibold tracking-tight text-[var(--ink)] hover:opacity-90 transition-opacity"
+          className="font-space-grotesk text-2xl font-semibold tracking-tight text-[var(--ink)] hover:opacity-90 transition-opacity"
         >
-          Zicdeck
+          ZicDeck
         </Link>
       </div>
 

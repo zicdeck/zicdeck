@@ -13,9 +13,9 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2 font-display text-base font-semibold tracking-[-0.05em] text-[var(--ink)]">
               <div className="block size-4 rounded-[5px]">
                 <Image src={'/logo.svg'} alt="logo" className="w-full" width={15} height={15} />  
-              </div> Zicdeck
+              </div> ZicDeck
             </Link>
-            <span>© 2026 Zicdeck. All rights reserved.</span>
+            <span>© 2026 ZicDeck. All rights reserved.</span>
           </div>
           <div className="flex flex-wrap gap-x-7 gap-y-3">
             <a href="#" className="transition-colors hover:text-[var(--ink)]">Cookie policy</a>
