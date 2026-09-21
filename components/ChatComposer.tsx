@@ -257,7 +257,7 @@ export function ChatComposer({
             disabled={disabled || currentFiles.length >= maxFiles}
             title="Attach file (.txt, .pdf)"
             aria-label="Attach file (.txt, .pdf)"
-            className="flex size-7 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-neutral-100 hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 disabled:opacity-40"
+            className="flex size-7 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 disabled:opacity-40 cursor-pointer"
           >
             <Plus className="size-4" />
           </button>
@@ -272,14 +272,14 @@ export function ChatComposer({
                 type="button"
                 onClick={() => setIsModelDropdownOpen((prev) => !prev)}
                 disabled={disabled}
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-neutral-100 hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 cursor-pointer"
               >
                 <span>{currentModel.name}</span>
                 <ChevronDown className="size-3 opacity-70" />
               </button>
 
               {isModelDropdownOpen && (
-                <div className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[200px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-lg">
+                <div className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[200px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-lg text-[var(--ink)]">
                   <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
                     Select Model
                   </div>
@@ -291,10 +291,10 @@ export function ChatComposer({
                         type="button"
                         onClick={() => handleSelectModel(m.id)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer",
                           isSelected
-                            ? "bg-neutral-100 font-medium text-[var(--ink)]"
-                            : "text-[var(--muted)] hover:bg-neutral-50 hover:text-[var(--ink)]"
+                            ? "bg-black/[0.06] dark:bg-white/[0.08] font-medium text-[var(--ink)]"
+                            : "text-[var(--muted)] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] hover:text-[var(--ink)]"
                         )}
                       >
                         <div className="flex flex-col">
@@ -320,7 +320,7 @@ export function ChatComposer({
             onClick={handleSend}
             disabled={isSendDisabled}
             aria-label="Send message"
-            className="flex size-8 items-center justify-center rounded-lg bg-neutral-900 text-white shadow-xs transition-all hover:bg-neutral-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-400 disabled:opacity-80"
+            className="flex size-8 items-center justify-center rounded-lg bg-[#14151a] dark:bg-white dark:text-[#14151a] text-white shadow-xs transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
           >
             <ArrowUp className="size-4 stroke-[2.5]" />
           </button>

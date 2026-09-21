@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ChatComposer } from "@/components/ChatComposer";
 import { useWorkspacePricingModal } from "@/components/workspace/WorkspacePricingModalContext";
+import { useWorkspaceTheme } from "@/components/workspace/WorkspaceThemeContext";
 import { cn } from "@/lib/utils";
 
 interface ShowcaseItem {
@@ -62,6 +63,14 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
     type: "Image",
     aspect: "landscape",
     image: "https://ppt-cdn.dokie.ai/user_122821/project_2637677/82/bbfc48d480.png?imageMogr2/format/webp",
+  },
+  {
+    id: "4",
+    title: "Model Market Analysis Report",
+    category: "Professional Reports",
+    type: "Image",
+    aspect: "portrait",
+    image: "https://ppt-cdn.dokie.ai/user_362996/project_3315410/53/0583b47951.png?imageMogr2/format/webp",
   },
   {
     id: "5",
@@ -219,6 +228,7 @@ const ACTION_PILLS = [
 
 export default function NewTaskPage() {
   const { openPricingModal } = useWorkspacePricingModal();
+  const { theme } = useWorkspaceTheme();
   const [selectedCategory, setSelectedCategory] = useState("All Showcases");
 
   const filteredShowcases = SHOWCASE_ITEMS.filter((item) =>
@@ -226,15 +236,20 @@ export default function NewTaskPage() {
   );
 
   return (
-    <div className="relative z-0 h-full min-h-0 w-full">
-      <div className="relative flex h-full flex-col overflow-y-auto bg-white/60 dark:bg-transparent [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative z-0 h-full min-h-0 w-full text-[var(--ink)]">
+      <div className="relative flex h-full flex-col overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Top Center Promo Banner */}
         <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center px-4">
           <div className="pointer-events-auto flex w-full justify-center">
             <button
               type="button"
               onClick={openPricingModal}
-              className="inline-flex h-8.5 max-w-[calc(100%-32px)] min-w-20 cursor-pointer items-center justify-between gap-2 rounded-full bg-[#fff7f1] px-3.5 py-1 text-xs sm:text-[13px] font-medium text-[var(--ink)] transition-all hover:bg-[#ffeee2]"
+              className={cn(
+                "inline-flex h-8.5 max-w-[calc(100%-32px)] min-w-20 cursor-pointer items-center justify-between gap-2 rounded-full px-3.5 py-1 text-xs sm:text-[13px] font-medium transition-all",
+                theme === "dark"
+                  ? "bg-orange-950/25 border border-orange-900/40 text-[var(--ink)] hover:bg-orange-950/40"
+                  : "bg-[#fff7f1] hover:bg-[#ffeee2] text-[#14151a]"
+              )}
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <svg
@@ -255,7 +270,7 @@ export default function NewTaskPage() {
                     d="M16.327 13.214a.222.222 0 0 1 .398.12l.082 1.405c.037.647.355 1.246.871 1.64l1.118.851a.223.223 0 0 1-.122.4l-1.402.08a2.22 2.22 0 0 0-1.64.873l-.853 1.117a.222.222 0 0 1-.398-.122l-.082-1.403a2.22 2.22 0 0 0-.871-1.64l-1.118-.851a.223.223 0 0 1 .122-.4l1.402-.08a2.22 2.22 0 0 0 1.64-.873z"
                   />
                 </svg>
-                <span className="truncate whitespace-nowrap text-xs sm:text-[13px] font-medium font-sans leading-5 text-[var(--ink)]">
+                <span className="truncate whitespace-nowrap text-xs sm:text-[13px] font-medium font-sans leading-5">
                   Upgrade now and save up to 50%
                 </span>
               </span>
@@ -266,7 +281,7 @@ export default function NewTaskPage() {
                     22:29:58
                   </span>
                 </span>
-                <ArrowRight className="size-3.5 text-[var(--ink)]" strokeWidth={1.8} />
+                <ArrowRight className="size-3.5 text-current" strokeWidth={1.8} />
               </span>
             </button>
           </div>
@@ -276,14 +291,14 @@ export default function NewTaskPage() {
         <div className="absolute end-4 top-4 z-10 flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-8.5 items-center justify-center gap-1 rounded-full px-3 text-xs sm:text-sm font-medium text-[var(--muted)] hover:bg-black/[0.04] transition-colors cursor-pointer"
+            className="inline-flex h-8.5 items-center justify-center gap-1 rounded-full px-3 text-xs sm:text-sm font-medium text-[var(--muted)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
             <span>Free model</span>
             <ChevronDown className="size-3.5 opacity-60" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9.5 items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-xs sm:text-sm font-medium text-[var(--ink)] shadow-2xs transition-colors hover:bg-black/[0.02] cursor-pointer"
+            className="inline-flex h-9.5 items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-white dark:bg-[var(--surface)] px-4 text-xs sm:text-sm font-medium text-[var(--ink)] shadow-2xs transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.04] cursor-pointer"
           >
             <Shapes className="size-4" />
             <span>Personalization</span>
@@ -302,7 +317,7 @@ export default function NewTaskPage() {
                   width={32}
                   height={32}
                   priority
-                  className="w-full object-contain"
+                  className={cn("w-full object-contain", theme === "dark" ? "invert brightness-200" : "")}
                 />
                 <span className="font-medium text-5xl font-display text-[var(--ink)]">ZicDeck</span>
               </div>
@@ -314,7 +329,7 @@ export default function NewTaskPage() {
             {/* ChatComposer Box */}
             <ChatComposer
               placeholder="Describe your topic or idea, or upload your files (doc, pdf, pptx, txt)…"
-              className="w-full rounded-[24px] border-[0.5px] border-[var(--border)] bg-white p-4 text-start shadow-[0_-6px_12px_rgba(0,0,0,0.03),0_14px_28px_rgba(0,0,0,0.03)] backdrop-blur-[20px] md:rounded-[32px] md:p-5"
+              className="w-full rounded-[24px] border-[0.5px] border-[var(--border)] bg-white dark:bg-[var(--surface)] p-4 text-start shadow-[0_-6px_12px_rgba(0,0,0,0.03),0_14px_28px_rgba(0,0,0,0.03)] dark:shadow-none backdrop-blur-[20px] md:rounded-[32px] md:p-5"
             />
 
             {/* Action Quick Pills */}
@@ -323,7 +338,7 @@ export default function NewTaskPage() {
                 <div key={pill.id} className="group relative pt-1 -mt-1">
                   <button
                     type="button"
-                    className="relative flex h-10 min-w-16 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] bg-white px-3.5 py-1.5 text-xs font-normal font-sans text-[var(--ink)] shadow-none transition-transform duration-200 hover:bg-white group-hover:-translate-y-0.5"
+                    className="relative flex h-10 min-w-16 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] bg-white dark:bg-[var(--surface)] px-3.5 py-1.5 text-xs font-normal font-sans text-[var(--ink)] shadow-none transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-white/[0.04] group-hover:-translate-y-0.5"
                   >
                     {pill.badge && (
                       <span className="absolute end-0 top-[-10px] flex items-center gap-1 rounded-full bg-gradient-to-r from-[#9ecbff] to-[#2F5EFF] px-2 py-0.5 text-[10px] font-normal text-white">
@@ -353,7 +368,10 @@ export default function NewTaskPage() {
             <section aria-labelledby="showcase-section-title" className="flex w-full flex-col gap-3 pb-12">
               {/* Category Filter Pills (Sticky on scroll) */}
               <div className="w-full">
-                <div className="sticky top-0 z-20 -mx-2 bg-white/95 px-2 py-2.5 backdrop-blur-[12px]">
+                <div className={cn(
+                  "sticky top-0 z-20 -mx-2 px-2 py-2.5 backdrop-blur-[12px] transition-colors",
+                  theme === "dark" ? "bg-[var(--surface)]/95" : "bg-white/95"
+                )}>
                   <div className="flex w-full items-center gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {CATEGORIES.map((cat) => {
                       const isSelected = selectedCategory === cat;
@@ -365,8 +383,8 @@ export default function NewTaskPage() {
                           className={cn(
                             "inline-flex h-[34px] min-w-0 w-auto shrink-0 cursor-pointer items-center justify-center rounded-full px-3.5 text-[13px] font-medium font-sans transition-all",
                             isSelected
-                              ? "bg-black/[0.08] text-[var(--ink)] shadow-2xs"
-                              : "text-[var(--muted)] hover:bg-black/[0.04] hover:text-[var(--ink)]"
+                              ? (theme === "dark" ? "bg-white/10 text-[var(--ink)] font-semibold" : "bg-black/[0.08] text-[#14151a] font-semibold")
+                              : (theme === "dark" ? "text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--ink)]" : "text-[#6B6B68] hover:bg-black/[0.04] hover:text-[#14151a]")
                           )}
                         >
                           <span>{cat}</span>
@@ -381,7 +399,7 @@ export default function NewTaskPage() {
                   {filteredShowcases.map((item) => (
                     <article
                       key={item.id}
-                      className="group relative mb-4 sm:mb-5 break-inside-avoid flex w-full flex-col gap-2 rounded-2xl p-1.5 transition-all hover:-translate-y-0.5"
+                      className="group relative mb-4 sm:mb-5 break-inside-avoid flex w-full flex-col gap-2 rounded-2xl p-1.5 transition-all hover:-translate-y-0.5 bg-transparent"
                     >
                       {/* Image Thumbnail with Aspect Ratio */}
                       <div
@@ -389,7 +407,8 @@ export default function NewTaskPage() {
                         role="button"
                         aria-label={item.title}
                         className={cn(
-                          "relative w-full cursor-pointer overflow-hidden rounded-xl bg-neutral-100 outline-none shadow-2xs focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                          "relative w-full cursor-pointer overflow-hidden rounded-xl outline-none shadow-2xs focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                          theme === "dark" ? "bg-[#282826]" : "bg-neutral-100",
                           item.aspect === "portrait" ? "aspect-[3/4]" : "aspect-[16/9]"
                         )}
                       >

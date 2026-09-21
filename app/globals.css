@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 :root {
   --paper: #FAFAF8;
   --surface: #FFFFFF;
@@ -53,6 +55,26 @@ select:-webkit-autofill {
   --border: #dedfe7;
   --accent: #2F5EFF;
   --accent-soft: #edf2fe;
+}
+
+.workspace-shell[data-theme="dark"] {
+  --paper: #181817;
+  --surface: #222220;
+  --ink: #f3f3ee;
+  --muted: #9c9b94;
+  --border: #343431;
+  --accent: #3b66ff;
+  --accent-soft: rgba(59, 102, 255, 0.14);
+}
+
+.workspace-shell[data-theme="light"] {
+  --paper: #FAFAF8;
+  --surface: #FFFFFF;
+  --ink: #14151A;
+  --muted: #6B6B68;
+  --border: #E5E4DF;
+  --accent: #2F5EFF;
+  --accent-soft: #EDF1FF;
 }
 
 body {

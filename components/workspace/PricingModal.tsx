@@ -100,8 +100,8 @@ export function PricingModal() {
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "relative flex flex-col w-full max-w-[880px] bg-white text-[var(--ink)] shadow-2xl transition-all",
-          "h-full min-h-dvh sm:min-h-0 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl border border-black/[0.06]",
+          "relative flex flex-col w-full max-w-[880px] bg-white dark:bg-[var(--surface)] text-[var(--ink)] shadow-2xl transition-all",
+          "h-full min-h-dvh sm:min-h-0 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl border border-black/[0.06] dark:border-[var(--border)]",
           "p-6 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         )}
       >
@@ -116,14 +116,14 @@ export function PricingModal() {
 
           <div className="flex items-center gap-3">
             {/* Billing Switcher: no border, compact pill */}
-            <div className="inline-flex items-center rounded-full bg-neutral-100 p-0.5 shadow-2xs">
+            <div className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 p-0.5 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setBilling("monthly")}
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer",
                   billing === "monthly"
-                    ? "bg-white text-[var(--ink)] shadow-xs font-semibold"
+                    ? "bg-white dark:bg-[var(--surface)] text-[var(--ink)] shadow-xs font-semibold"
                     : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
               >
@@ -136,7 +136,7 @@ export function PricingModal() {
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer",
                   billing === "yearly"
-                    ? "bg-white text-[var(--ink)] shadow-xs font-semibold"
+                    ? "bg-white dark:bg-[var(--surface)] text-[var(--ink)] shadow-xs font-semibold"
                     : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
               >
@@ -150,7 +150,7 @@ export function PricingModal() {
               type="button"
               onClick={closePricingModal}
               aria-label="Close pricing modal"
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:text-[var(--ink)] hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:text-[var(--ink)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               <X className="size-4.5" />
             </button>
@@ -160,7 +160,7 @@ export function PricingModal() {
         {/* Existing Pricing Cards (Main & Power from pricing-section.tsx) */}
         <div className="flex gap-4 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:overflow-visible">
           {/* Card 1: Main */}
-          <div className="flex flex-col justify-between rounded-[20px] bg-border/30 shadow-xs min-w-[290px] sm:min-w-0">
+          <div className="flex flex-col justify-between rounded-[20px] bg-border/30 dark:bg-white/[0.04] border border-transparent dark:border-[var(--border)] shadow-xs min-w-[290px] sm:min-w-0">
             <div>
               {/* Plan Header */}
               <div className="p-5 sm:p-6">
@@ -168,7 +168,7 @@ export function PricingModal() {
                   <h3 className="font-sans text-xl font-bold tracking-tight text-[var(--ink)]">
                     Main
                   </h3>
-                  <span className="rounded-full bg-black/5 px-2 py-0.5 font-sans text-[11px] font-medium text-[var(--muted)]">
+                  <span className="rounded-full bg-black/5 dark:bg-white/10 px-2 py-0.5 font-sans text-[11px] font-medium text-[var(--muted)]">
                     Most popular
                   </span>
                 </div>
@@ -198,9 +198,9 @@ export function PricingModal() {
                 </button>
               </div>
 
-              {/* Feature List in White Card */}
+              {/* Feature List in Box */}
               <div className="px-1.5 pb-1.5">
-                <div className="rounded-2xl border border-black/[0.04] bg-white p-4 shadow-2xs">
+                <div className="rounded-2xl border border-black/[0.04] dark:border-white/[0.06] bg-white dark:bg-[var(--surface)] p-4 shadow-2xs">
                   <ul className="space-y-2.5">
                     {MAIN_FEATURES.map((feature) => (
                       <li key={feature} className="flex items-center gap-2.5">
@@ -219,7 +219,7 @@ export function PricingModal() {
           </div>
 
           {/* Card 2: Power */}
-          <div className="flex flex-col justify-between rounded-[20px] bg-border/30 shadow-xs min-w-[290px] sm:min-w-0">
+          <div className="flex flex-col justify-between rounded-[20px] bg-border/30 dark:bg-white/[0.04] border border-transparent dark:border-[var(--border)] shadow-xs min-w-[290px] sm:min-w-0">
             <div>
               {/* Plan Header */}
               <div className="p-5 sm:p-6">
@@ -254,9 +254,9 @@ export function PricingModal() {
                 </button>
               </div>
 
-              {/* Feature List in White Card */}
+              {/* Feature List in Box */}
               <div className="px-1.5 pb-1.5">
-                <div className="rounded-2xl border border-black/[0.04] bg-white p-4 shadow-2xs">
+                <div className="rounded-2xl border border-black/[0.04] dark:border-white/[0.06] bg-white dark:bg-[var(--surface)] p-4 shadow-2xs">
                   <ul className="space-y-2.5">
                     {POWER_FEATURES.map((feature) => (
                       <li key={feature} className="flex items-center gap-2.5">
