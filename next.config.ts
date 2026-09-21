@@ -12,6 +12,18 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "picsum.photos",
       },
+      {
+        protocol: "https",
+        hostname: "fe-cdn.dokie.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "ppt-cdn.dokie.ai",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
 };

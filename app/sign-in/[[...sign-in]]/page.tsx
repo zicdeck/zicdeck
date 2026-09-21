@@ -23,7 +23,7 @@ function SignInContent() {
     searchParams.get("redirect_url") ||
     searchParams.get("redirectUrl") ||
     searchParams.get("next") ||
-    "/server";
+    "/workspace/new-task";
 
   const [mode, setMode] = useState<SignInMode>("sign-in");
   const [identifier, setIdentifier] = useState("");

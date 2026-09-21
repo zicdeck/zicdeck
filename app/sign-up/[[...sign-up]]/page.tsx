@@ -21,7 +21,7 @@ function SignUpContent() {
     searchParams.get("redirect_url") ||
     searchParams.get("redirectUrl") ||
     searchParams.get("next") ||
-    "/server";
+    "/workspace/new-task";
 
   // Form states
   const [firstName, setFirstName] = useState("");

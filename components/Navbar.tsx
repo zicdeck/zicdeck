@@ -74,7 +74,7 @@ export function Navbar() {
               </Link>
             </SignedOut>
             <SignedIn>
-              <Link href="/server" className="px-3 py-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--ink)]">
+              <Link href="/workspace/new-task" className="px-3 py-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--ink)]">
                 Dashboard
               </Link>
               <UserButton appearance={{ elements: { userButtonAvatarBox: "h-8 w-8" } }} />
@@ -166,7 +166,7 @@ export function Navbar() {
 
             <SignedIn>
               <Link
-                href="/server"
+                href="/workspace/new-task"
                 onClick={closeMenu}
                 className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#254ecc]"
               >
