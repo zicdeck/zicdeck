@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSignUp, useAuth } from "@clerk/nextjs";
 import { Mail, User, ArrowLeft, Loader2, MailCheck, CheckCircle2 } from "lucide-react";
@@ -175,19 +174,11 @@ function SignUpContent() {
         title="Check your inbox"
         subtitle={`Enter the 6-digit code we sent to ${email} to activate your ZicDeck workspace.`}
         error={error}
-        headerRight={
-          <div className="flex items-center gap-2 font-display text-xs sm:text-[13px]">
-            <span className="text-[var(--muted)]">Already have an account?</span>
-            <Link
-              href={`/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-              className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95"
-            >
-              Login
-            </Link>
-          </div>
-        }
+        headerText="Already have an account?"
+        headerActionLabel="Login"
+        headerHref={`/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
       >
-        <div className="space-y-6">
+        <div className="flex w-full flex-col gap-6">
           <div className="flex justify-center py-1">
             <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--paper)] text-[var(--accent)] shadow-2xs">
               <MailCheck className="size-7" />
@@ -221,7 +212,7 @@ function SignUpContent() {
             type="button"
             disabled={loading || code.length < 6}
             onClick={() => handleVerify()}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Verifying..." : "Verify & continue"}
@@ -268,43 +259,30 @@ function SignUpContent() {
   // Standard Sign-up Form Screen
   return (
     <AuthCard
-      title="Build your next great deck"
-      subtitle="Create a workspace for sharper stories and polished presentations."
+      title="Create a new account"
+      subtitle="Enter your details to get started with ZicDeck."
       error={error}
-      headerRight={
-        <div className="flex items-center gap-2 font-display text-xs sm:text-[13px]">
-          <span className="text-[var(--muted)]">Already have an account?</span>
-          <Link
-            href={`/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95"
-          >
-            Login
-          </Link>
-        </div>
-      }
+      headerText="Already have an account?"
+      headerActionLabel="Login"
+      headerHref={`/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
     >
-      <div className="space-y-5">
+      <div className="flex w-full flex-col gap-6">
         <OAuthButtons
           onOAuthClick={handleOAuth}
           loadingStrategy={oauthLoading}
           disabled={loading || !isLoaded}
         />
 
-        <AuthDivider label="or continue with email" />
+        <AuthDivider label="OR" />
 
-        <form onSubmit={handleSignUp} className="space-y-4">
+        <form onSubmit={handleSignUp} className="flex w-full flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="firstName"
-                className="block text-xs font-medium text-[var(--ink)]"
-              >
-                First name
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--muted)]">
-                  <User className="size-4" />
-                </div>
+            <label className="flex w-full flex-col items-start gap-1">
+              <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+                First Name<span className="ml-1 text-[#335cff]">*</span>
+              </span>
+              <span className="flex h-10 w-full items-center gap-2 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--paper)] pl-3 pr-[10px] shadow-[0_1px_2px_rgba(10,13,20,0.03)] focus-within:border-[#335cff]">
+                <User className="size-4 text-[var(--muted)] shrink-0" />
                 <input
                   id="firstName"
                   type="text"
@@ -313,42 +291,36 @@ function SignUpContent() {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={loading}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--paper)] py-2.5 pl-9 pr-3 text-xs sm:text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
                 />
-              </div>
-            </div>
+              </span>
+            </label>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="lastName"
-                className="block text-xs font-medium text-[var(--ink)]"
-              >
-                Last name
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                autoComplete="family-name"
-                placeholder="Connor"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={loading}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--paper)] py-2.5 px-3 text-xs sm:text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
-              />
-            </div>
+            <label className="flex w-full flex-col items-start gap-1">
+              <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+                Last Name
+              </span>
+              <span className="flex h-10 w-full items-center gap-2 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--paper)] px-3 shadow-[0_1px_2px_rgba(10,13,20,0.03)] focus-within:border-[#335cff]">
+                <input
+                  id="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  placeholder="Connor"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={loading}
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
+                />
+              </span>
+            </label>
           </div>
 
-          <div className="space-y-1.5">
-            <label
-              htmlFor="email"
-              className="block text-xs font-medium text-[var(--ink)]"
-            >
-              Work Email
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--muted)]">
-                <Mail className="size-4" />
-              </div>
+          <label className="flex w-full flex-col items-start gap-1">
+            <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+              Email Address<span className="ml-1 text-[#335cff]">*</span>
+            </span>
+            <span className="flex h-10 w-full items-center gap-2 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--paper)] pl-3 pr-[10px] shadow-[0_1px_2px_rgba(10,13,20,0.03)] focus-within:border-[#335cff]">
+              <Mail className="size-4 text-[var(--muted)] shrink-0" />
               <input
                 id="email"
                 type="email"
@@ -361,29 +333,34 @@ function SignUpContent() {
                   setError(null);
                 }}
                 disabled={loading}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--paper)] py-2.5 pl-9 pr-3 text-xs sm:text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
               />
-            </div>
-          </div>
+            </span>
+          </label>
 
-          <PasswordInput
-            id="password"
-            label="Password"
-            placeholder="Create a strong password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-            }}
-            disabled={loading}
-            showStrength
-          />
+          <div className="w-full space-y-1">
+            <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+              Password<span className="ml-1 text-[#335cff]">*</span>
+            </span>
+            <PasswordInput
+              id="password"
+              label=""
+              placeholder="Create a strong password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
+              disabled={loading}
+              showStrength
+            />
+          </div>
 
           <button
             type="submit"
             disabled={loading || !isLoaded}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="mt-2 flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Creating account..." : "Create account"}

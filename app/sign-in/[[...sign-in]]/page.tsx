@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { Mail, Loader2, ShieldCheck } from "lucide-react";
@@ -213,20 +212,11 @@ function SignInContent() {
         title="Two-step verification"
         subtitle="Enter the 6-digit code from your authenticator app"
         error={error}
-        headerRight={
-          <button
-            type="button"
-            onClick={() => {
-              setMode("sign-in");
-              setError(null);
-            }}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display text-xs sm:text-[13px] font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95 cursor-pointer"
-          >
-            Login
-          </button>
-        }
+        headerText="Need to log in again?"
+        headerActionLabel="Back"
+        headerHref="/sign-in"
       >
-        <div className="space-y-6">
+        <div className="flex w-full flex-col gap-6">
           <div className="flex justify-center py-2">
             <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--paper)] text-[var(--accent)] shadow-2xs">
               <ShieldCheck className="size-7" />
@@ -248,7 +238,7 @@ function SignInContent() {
             type="button"
             disabled={loading || secondFactorCode.length < 6}
             onClick={() => handleSecondFactorSubmit()}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Verifying..." : "Verify code"}
@@ -265,23 +255,14 @@ function SignInContent() {
         title="Reset your password"
         subtitle="Enter the email associated with your account and we'll send a reset code."
         error={error}
-        headerRight={
-          <button
-            type="button"
-            onClick={() => {
-              setMode("sign-in");
-              setError(null);
-            }}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display text-xs sm:text-[13px] font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95 cursor-pointer"
-          >
-            Login
-          </button>
-        }
+        headerText="Remember your password?"
+        headerActionLabel="Login"
+        headerHref="/sign-in"
       >
-        <form onSubmit={handleRequestPasswordReset} className="space-y-4">
+        <form onSubmit={handleRequestPasswordReset} className="flex w-full flex-col gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="reset-email" className="block text-xs font-medium text-[var(--ink)]">
-              Email address
+            <label htmlFor="reset-email" className="block text-sm font-medium text-[var(--ink)]">
+              Email Address
             </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--muted)]">
@@ -298,7 +279,7 @@ function SignInContent() {
                   setResetEmail(e.target.value);
                   setError(null);
                 }}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--paper)] py-2.5 pl-9 pr-3 text-xs sm:text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--paper)] py-2.5 pl-9 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] shadow-[0_1px_2px_rgba(10,13,20,0.03)]"
               />
             </div>
           </div>
@@ -306,7 +287,7 @@ function SignInContent() {
           <button
             type="submit"
             disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Sending reset code..." : "Send reset code"}
@@ -323,20 +304,11 @@ function SignInContent() {
         title="Choose a new password"
         subtitle={`Enter the 6-digit code sent to ${resetEmail || "your email"}, then set a new workspace password.`}
         error={error}
-        headerRight={
-          <button
-            type="button"
-            onClick={() => {
-              setMode("sign-in");
-              setError(null);
-            }}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display text-xs sm:text-[13px] font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95 cursor-pointer"
-          >
-            Login
-          </button>
-        }
+        headerText="Remember your password?"
+        headerActionLabel="Login"
+        headerHref="/sign-in"
       >
-        <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+        <form onSubmit={handleResetPasswordSubmit} className="flex w-full flex-col gap-4">
           <div className="space-y-1.5">
             <label className="block text-xs font-medium text-[var(--ink)] text-center mb-1">
               Verification code
@@ -380,7 +352,7 @@ function SignInContent() {
           <button
             type="submit"
             disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Resetting password..." : "Reset password & sign in"}
@@ -394,41 +366,28 @@ function SignInContent() {
   return (
     <AuthCard
       title="Welcome back"
-      subtitle="Pick up exactly where your presentation work left off."
+      subtitle="Enter your credentials to access your workspace."
       error={error}
-      headerRight={
-        <div className="flex items-center gap-2 font-display text-xs sm:text-[13px]">
-          <span className="text-[var(--muted)]">Don&apos;t have an account?</span>
-          <Link
-            href={`/sign-up${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent-soft)] px-3.5 py-1.5 font-display font-medium text-[var(--accent)] transition-all hover:opacity-90 active:scale-95"
-          >
-            Sign up
-          </Link>
-        </div>
-      }
+      headerText="Don't have an account?"
+      headerActionLabel="Sign up"
+      headerHref={`/sign-up${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
     >
-      <div className="space-y-5">
+      <div className="flex w-full flex-col gap-6">
         <OAuthButtons
           onOAuthClick={handleOAuth}
           loadingStrategy={oauthLoading}
           disabled={loading || !isLoaded}
         />
 
-        <AuthDivider label="or continue with email" />
+        <AuthDivider label="OR" />
 
-        <form onSubmit={handleSignIn} className="space-y-4">
-          <div className="space-y-1.5">
-            <label
-              htmlFor="identifier"
-              className="block text-xs font-medium text-[var(--ink)]"
-            >
-              Email or Username
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--muted)]">
-                <Mail className="size-4" />
-              </div>
+        <form onSubmit={handleSignIn} className="flex w-full flex-col gap-3.5">
+          <label className="flex w-full flex-col items-start gap-1">
+            <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+              Email Address<span className="ml-1 text-[#335cff]">*</span>
+            </span>
+            <span className="flex h-10 w-full items-center gap-2 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--paper)] pl-3 pr-[10px] shadow-[0_1px_2px_rgba(10,13,20,0.03)] focus-within:border-[#335cff]">
+              <Mail className="size-4 text-[var(--muted)] shrink-0" />
               <input
                 id="identifier"
                 type="text"
@@ -441,19 +400,16 @@ function SignInContent() {
                   setError(null);
                 }}
                 disabled={loading}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--paper)] py-2.5 pl-9 pr-3 text-xs sm:text-sm text-[var(--ink)] placeholder:text-[var(--muted)] transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
               />
-            </div>
-          </div>
+            </span>
+          </label>
 
-          <div className="space-y-1.5">
+          <div className="w-full space-y-1">
             <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium text-[var(--ink)]"
-              >
-                Password
-              </label>
+              <span className="flex items-center text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--ink)]">
+                Password<span className="ml-1 text-[#335cff]">*</span>
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -461,7 +417,7 @@ function SignInContent() {
                   setMode("forgot-password-request");
                   setError(null);
                 }}
-                className="text-[11px] font-medium text-[var(--accent)] hover:underline cursor-pointer"
+                className="text-xs font-medium text-[#335cff] hover:underline cursor-pointer"
               >
                 Forgot password?
               </button>
@@ -483,7 +439,7 @@ function SignInContent() {
           <button
             type="submit"
             disabled={loading || !isLoaded}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#2F5EFF] px-4 text-sm font-medium text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="mt-2 flex h-10 w-full items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[#335cff] text-sm font-medium leading-5 tracking-[-0.006em] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] text-white active:bg-[#2547d8] disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Signing in..." : "Sign in"}

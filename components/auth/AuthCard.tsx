@@ -12,6 +12,9 @@ interface AuthCardProps {
   error?: string | null;
   children: React.ReactNode;
   headerRight?: React.ReactNode;
+  headerText?: string;
+  headerActionLabel?: string;
+  headerHref?: string;
   footer?: React.ReactNode;
   className?: string;
 }
@@ -24,6 +27,9 @@ export function AuthCard({
   error,
   children,
   headerRight,
+  headerText = "Already have an account?",
+  headerActionLabel = "Login",
+  headerHref = "/sign-in",
   footer,
   className,
 }: AuthCardProps) {
@@ -45,94 +51,99 @@ export function AuthCard({
   return (
     <main
       data-theme={theme}
-      className="auth-shell relative min-h-screen overflow-hidden bg-[#3159ee] p-[8px] sm:p-[10px] text-[var(--ink)] selection:bg-white/20 selection:text-white flex items-center justify-center"
+      className="auth-shell relative min-h-dvh w-full overflow-auto bg-[linear-gradient(180deg,#18369f_0%,#2547d8_25%,#335cff_50%,#7892ff_75%,#dce4ff_100%)] p-2 min-[1181px]:h-dvh min-[1181px]:min-h-[640px] min-[1181px]:overflow-hidden min-[1181px]:p-0 selection:bg-white/20 selection:text-white"
     >
-      {/* Background Gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#213db4_0%,#315bf4_56%,#a9b8ff_100%)]" />
-
-      {/* Top-Right Background SVG (compact top-right shape) */}
-      <div className="pointer-events-none absolute right-0 top-0 z-0 h-[220px] w-[220px] sm:h-[260px] sm:w-[260px] lg:h-[290px] lg:w-[290px] overflow-hidden opacity-75">
-        <Image
-          src="/authpage-bg.svg"
-          alt=""
-          width={290}
-          height={290}
-          priority
-          className="h-full w-full object-contain object-right-top"
-        />
-      </div>
-
-      {/* Main Grid Container (compact height on desktop, full on mobile) */}
-      <div className="relative z-10 mx-auto grid w-full max-w-[1280px] items-center lg:grid-cols-[minmax(0,540px)_1fr] lg:gap-12 xl:gap-16">
-        {/* Auth Card (only stretched on mobile; compact & intrinsic on desktop) */}
+      <div className="relative mx-auto min-h-[calc(100dvh_-_16px)] w-full max-w-[1440px] min-[1181px]:h-dvh min-[1181px]:min-h-[640px]">
+        {/* Auth Section Card */}
         <section
           className={cn(
-            "relative flex min-h-[calc(100vh-16px)] sm:min-h-[calc(100vh-20px)] lg:min-h-0 lg:h-auto flex-col justify-between overflow-hidden rounded-[24px] bg-[var(--surface)] px-6 py-7 sm:px-10 sm:py-8 lg:px-11 lg:py-8 shadow-[0_24px_60px_rgba(13,25,89,0.24)]",
+            "relative z-10 flex min-h-[calc(100dvh_-_16px)] w-full flex-col overflow-hidden rounded-[20px] bg-[var(--surface)] text-[var(--ink)] shadow-[0_0_0_1px_rgba(37,71,216,0.04),0_1px_1px_0.5px_rgba(37,71,216,0.04),0_3px_3px_-1.5px_rgba(37,71,216,0.02),0_6px_6px_-3px_rgba(37,71,216,0.04),0_12px_12px_-6px_rgba(37,71,216,0.04),0_24px_24px_-12px_rgba(37,71,216,0.04),0_48px_48px_-24px_rgba(37,71,216,0.04)] min-[1181px]:absolute min-[1181px]:left-[0.555556%] min-[1181px]:top-1/2 min-[1181px]:h-[calc(100%_-_16px)] min-[1181px]:min-h-0 min-[1181px]:max-h-[884px] min-[1181px]:w-[58.055556%] min-[1181px]:-translate-y-1/2 min-[1181px]:rounded-2xl",
             className
           )}
         >
           {/* Header */}
-          <header className="flex items-center justify-between gap-4">
-            {/* Logo without any borders or container classes */}
+          <header className="relative flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-6 py-5 max-[359px]:gap-2 max-[359px]:px-3 min-[1181px]:absolute min-[1181px]:left-8 min-[1181px]:right-8 min-[1181px]:top-8 min-[1181px]:border-b-0 min-[1181px]:p-0">
             <Link
               href="/"
               aria-label="Go to ZicDeck home"
-              className="group inline-flex items-center gap-2.5 text-[var(--ink)] transition-opacity hover:opacity-85"
+              className="group flex shrink-0 items-center gap-2 text-[var(--ink)] transition-opacity hover:opacity-85"
             >
               <Image
                 src="/logo.svg"
-                alt="ZicDeck logo"
+                alt="ZicDeck"
                 width={22}
                 height={22}
                 className="shrink-0"
               />
-              <span className="font-display text-lg sm:text-xl font-semibold tracking-[-0.03em]">
+              <span className="font-display text-base font-semibold tracking-[-0.02em]">
                 ZicDeck
               </span>
             </Link>
 
-            {/* Top Right Header Action (Matching Image 1 style) */}
             {headerRight ? (
-              <div className="text-right">{headerRight}</div>
-            ) : footer ? (
-              <div className="text-right">{footer}</div>
-            ) : null}
+              <div className="flex flex-1 items-center justify-end gap-2 text-right">
+                {headerRight}
+              </div>
+            ) : (
+              <>
+                {headerText && (
+                  <p className="min-w-0 flex-1 text-right text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--muted)] max-[359px]:text-xs max-[359px]:leading-4">
+                    {headerText}
+                  </p>
+                )}
+                {headerActionLabel && headerHref && (
+                  <Link
+                    href={headerHref}
+                    className="flex shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] p-1.5 text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--accent)] transition-colors hover:bg-[rgba(51,92,255,0.18)] max-[359px]:text-xs max-[359px]:leading-4 active:scale-95"
+                  >
+                    <span className="px-1">{headerActionLabel}</span>
+                  </Link>
+                )}
+              </>
+            )}
           </header>
 
-          {/* Form Content Area (compact padding on desktop) */}
-          <div className="mx-auto flex w-full max-w-[396px] flex-col justify-center py-6 sm:py-8 lg:py-6">
-            <div className="mb-6 text-center">
-              <h1 className="font-display text-2xl sm:text-[1.75rem] font-semibold tracking-[-0.04em] text-[var(--ink)]">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="mt-1.5 text-xs sm:text-[13px] font-display leading-relaxed text-[var(--muted)]">
-                  {subtitle}
-                </p>
-              )}
-            </div>
-
-            {error && (
-              <div
-                role="alert"
-                className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs leading-relaxed text-red-400"
-              >
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                <p className="font-medium">{error}</p>
+          {/* Form Content */}
+          <div className="relative flex w-full max-w-[440px] flex-1 self-center px-6 py-8 max-[359px]:px-3 min-[1181px]:absolute min-[1181px]:left-1/2 min-[1181px]:top-[calc(50%_-_16px)] min-[1181px]:w-[392px] min-[1181px]:max-w-none min-[1181px]:flex-none min-[1181px]:self-auto min-[1181px]:-translate-x-1/2 min-[1181px]:-translate-y-1/2 min-[1181px]:p-0">
+            <div className="flex w-full flex-col items-end gap-6">
+              <div className="flex w-full flex-col items-center">
+                <div className="flex w-full flex-col items-center gap-1 text-center">
+                  <h1 className="w-full text-xl font-medium leading-7 tracking-normal text-[var(--ink)] min-[1181px]:text-2xl min-[1181px]:leading-8">
+                    {title}
+                  </h1>
+                  {subtitle && (
+                    <p className="w-full text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--muted)] min-[1181px]:text-base min-[1181px]:leading-6 min-[1181px]:tracking-[-0.011em]">
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
               </div>
-            )}
 
-            {children}
+              {error && (
+                <div
+                  role="alert"
+                  className="flex w-full items-start gap-2.5 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs leading-relaxed text-red-400"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <p className="font-medium">{error}</p>
+                </div>
+              )}
+
+              {children}
+            </div>
           </div>
 
-          {/* Footer with rotating theme switch icon */}
-          <footer className="flex items-center justify-between gap-4 pt-4 border-t border-[var(--border)]/30 text-xs sm:text-[13px] font-display text-[var(--muted)]">
-            <span>© 2026 ZicDeck</span>
+          {/* Footer */}
+          <footer className="relative flex shrink-0 items-center gap-3 border-t border-[var(--border)] px-6 py-5 max-[359px]:px-3 min-[1181px]:absolute min-[1181px]:bottom-8 min-[1181px]:left-8 min-[1181px]:right-8 min-[1181px]:border-t-0 min-[1181px]:p-0">
+            <p className="min-w-0 flex-1 text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--muted)]">
+              © 2026 ZicDeck
+            </p>
             <button
+              className="flex shrink-0 items-center gap-1.5 rounded-md text-sm font-normal leading-5 tracking-[-0.006em] text-[var(--muted)] transition-colors hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#335cff] cursor-pointer"
               type="button"
               onClick={toggleTheme}
-              className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] font-display font-medium transition-colors hover:bg-[var(--paper)] hover:text-[var(--ink)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
             >
               <span
                 aria-hidden="true"
@@ -152,33 +163,50 @@ export function AuthCard({
                   <path d="M12 21.9967C6.47715 21.9967 2 17.5196 2 11.9967C2 6.47386 6.47715 1.9967 12 1.9967C17.5228 1.9967 22 6.47386 22 11.9967C22 17.5196 17.5228 21.9967 12 21.9967ZM12 19.9967C16.4183 19.9967 20 16.415 20 11.9967C20 7.57843 16.4183 3.9967 12 3.9967C7.58172 3.9967 4 7.57843 4 11.9967C4 16.415 7.58172 19.9967 12 19.9967ZM7.00035 15.316C9.07995 15.1646 11.117 14.2939 12.7071 12.7038C14.2972 11.1137 15.1679 9.07666 15.3193 6.99706C15.6454 7.21408 15.955 7.46642 16.2426 7.75406C18.5858 10.0972 18.5858 13.8962 16.2426 16.2393C13.8995 18.5825 10.1005 18.5825 7.75736 16.2393C7.46971 15.9517 7.21738 15.6421 7.00035 15.316Z"></path>
                 </svg>
               </span>
-              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
           </footer>
         </section>
 
-        {/* Right Side (Clean, lowered font size, no description/workspace tag) */}
-        <aside className="relative hidden overflow-hidden px-8 py-10 text-white lg:flex lg:flex-col lg:justify-center">
-          <div className="relative max-w-[380px]">
-            <h2 className="font-display text-2xl lg:text-[28px] font-medium leading-[1.25] tracking-[-0.03em] text-white">
-              From rough ideas to presentation-ready work.
-            </h2>
-            <ol className="mt-7 space-y-3 text-xs sm:text-[13px] font-display text-white/85">
-              <li className="flex items-center gap-3">
-                <span className="font-display text-[11px] text-white/45">01</span>
-                <span>Shape a clear story with AI.</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="font-display text-[11px] text-white/45">02</span>
-                <span>Refine slides without breaking your brand.</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="font-display text-[11px] text-white/45">03</span>
-                <span>Deliver polished work with confidence.</span>
-              </li>
-            </ol>
-          </div>
+        {/* Right Aside Region */}
+        <aside
+          className="absolute left-[65.277778%] top-1/2 z-[2] hidden w-[28.055556%] -translate-y-1/2 flex-col items-start gap-8 min-[1181px]:flex"
+          role="region"
+          aria-label="How ZicDeck works"
+        >
+          <p className="text-2xl font-medium leading-8 text-white">
+            From rough ideas to presentation-ready work.
+          </p>
+          <ol className="flex w-full flex-col gap-5 text-white">
+            <li className="flex items-baseline gap-3">
+              <span className="text-sm font-medium text-white/60">01</span>
+              <span className="text-base leading-6">Shape a clear story with AI.</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <span className="text-sm font-medium text-white/60">02</span>
+              <span className="text-base leading-6">Refine slides without breaking your brand.</span>
+            </li>
+            <li className="flex items-baseline gap-3">
+              <span className="text-sm font-medium text-white/60">03</span>
+              <span className="text-base leading-6">Deliver polished work with confidence.</span>
+            </li>
+          </ol>
         </aside>
+
+        {/* Top-Right SVG Background Shape */}
+        <div
+          className="pointer-events-none absolute right-0 top-0 hidden aspect-square w-[41.388889%] min-[1181px]:block"
+          aria-hidden="true"
+        >
+          <Image
+            src="/authpage-bg.svg"
+            alt=""
+            width={500}
+            height={500}
+            priority
+            className="size-full object-contain object-right-top opacity-80"
+          />
+        </div>
       </div>
     </main>
   );
