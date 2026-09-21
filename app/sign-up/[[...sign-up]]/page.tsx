@@ -357,6 +357,9 @@ function SignUpContent() {
             />
           </div>
 
+          {/* Clerk Smart CAPTCHA Widget Mounting Container */}
+          <div id="clerk-captcha" className="empty:hidden" />
+
           <button
             type="submit"
             disabled={loading || !isLoaded}

@@ -214,7 +214,10 @@ function SignInContent() {
         error={error}
         headerText="Need to log in again?"
         headerActionLabel="Back"
-        headerHref="/sign-in"
+        onHeaderActionClick={() => {
+          setMode("sign-in");
+          setError(null);
+        }}
       >
         <div className="flex w-full flex-col gap-6">
           <div className="flex justify-center py-2">
@@ -257,7 +260,10 @@ function SignInContent() {
         error={error}
         headerText="Remember your password?"
         headerActionLabel="Login"
-        headerHref="/sign-in"
+        onHeaderActionClick={() => {
+          setMode("sign-in");
+          setError(null);
+        }}
       >
         <form onSubmit={handleRequestPasswordReset} className="flex w-full flex-col gap-4">
           <div className="space-y-1.5">
@@ -306,7 +312,10 @@ function SignInContent() {
         error={error}
         headerText="Remember your password?"
         headerActionLabel="Login"
-        headerHref="/sign-in"
+        onHeaderActionClick={() => {
+          setMode("sign-in");
+          setError(null);
+        }}
       >
         <form onSubmit={handleResetPasswordSubmit} className="flex w-full flex-col gap-4">
           <div className="space-y-1.5">
@@ -435,6 +444,9 @@ function SignInContent() {
               disabled={loading}
             />
           </div>
+
+          {/* Clerk Smart CAPTCHA Widget Mounting Container */}
+          <div id="clerk-captcha" className="empty:hidden" />
 
           <button
             type="submit"

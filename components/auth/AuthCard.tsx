@@ -15,6 +15,7 @@ interface AuthCardProps {
   headerText?: string;
   headerActionLabel?: string;
   headerHref?: string;
+  onHeaderActionClick?: () => void;
   footer?: React.ReactNode;
   className?: string;
 }
@@ -30,6 +31,7 @@ export function AuthCard({
   headerText = "Already have an account?",
   headerActionLabel = "Login",
   headerHref = "/sign-in",
+  onHeaderActionClick,
   footer,
   className,
 }: AuthCardProps) {
@@ -91,13 +93,23 @@ export function AuthCard({
                     {headerText}
                   </p>
                 )}
-                {headerActionLabel && headerHref && (
-                  <Link
-                    href={headerHref}
-                    className="flex shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] p-1.5 text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--accent)] transition-colors hover:bg-[rgba(51,92,255,0.18)] max-[359px]:text-xs max-[359px]:leading-4 active:scale-95"
-                  >
-                    <span className="px-1">{headerActionLabel}</span>
-                  </Link>
+                {headerActionLabel && (
+                  headerHref && !onHeaderActionClick ? (
+                    <Link
+                      href={headerHref}
+                      className="flex shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] p-1.5 text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--accent)] transition-colors hover:bg-[rgba(51,92,255,0.18)] max-[359px]:text-xs max-[359px]:leading-4 active:scale-95 cursor-pointer"
+                    >
+                      <span className="px-1">{headerActionLabel}</span>
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onHeaderActionClick}
+                      className="flex shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] p-1.5 text-sm font-medium leading-5 tracking-[-0.006em] text-[var(--accent)] transition-colors hover:bg-[rgba(51,92,255,0.18)] max-[359px]:text-xs max-[359px]:leading-4 active:scale-95 cursor-pointer"
+                    >
+                      <span className="px-1">{headerActionLabel}</span>
+                    </button>
+                  )
                 )}
               </>
             )}

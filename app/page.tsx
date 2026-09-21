@@ -66,7 +66,7 @@ export default function LandingPage() {
               </h1>
               <ChatComposer className="mt-8 w-full max-w-2xl text-left animate-fade-in-up delay-250" />
               <div className="mt-6 flex flex-col items-center gap-2.5 sm:flex-row animate-fade-in-up delay-300">
-                <Link href="/sign-up" className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-full bg-[var(--accent)] px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#254ecc]">
+                <Link href="/sign-up" className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-[#335cff] px-4 text-xs font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] active:bg-[#2547d8] cursor-pointer">
                   Get started <ArrowRight className="size-3.5" />
                 </Link>
                 <a href="#product" className="inline-flex h-8.5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-xs font-medium text-[var(--ink)] transition-colors hover:bg-white">

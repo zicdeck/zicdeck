@@ -174,7 +174,7 @@ export function PricingSection() {
               {/* CTA Button */}
               <Link
                 href="/sign-up?plan=main"
-                className="mt-5 flex h-10.5 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 font-sans text-[15px] font-semibold text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] sm:text-base"
+                className="mt-5 flex h-10.5 w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#335cff] px-4 py-2 font-sans text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-all hover:bg-[#2547d8] active:bg-[#2547d8] active:scale-[0.99] sm:text-base cursor-pointer"
               >
                 <span>Start trial</span>
                 <ArrowUpRight className="size-4.5 stroke-[2.5]" />
@@ -232,7 +232,7 @@ export function PricingSection() {
               {/* CTA Button */}
               <Link
                 href="/sign-up?plan=power"
-                className="mt-5 flex h-10.5 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 font-sans text-[15px] font-semibold text-white shadow-xs transition-all hover:bg-[#254ecc] active:scale-[0.99] sm:text-base"
+                className="mt-5 flex h-10.5 w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#335cff] px-4 py-2 font-sans text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-all hover:bg-[#2547d8] active:bg-[#2547d8] active:scale-[0.99] sm:text-base cursor-pointer"
               >
                 <span>Start trial</span>
                 <ArrowUpRight className="size-4.5 stroke-[2.5]" />

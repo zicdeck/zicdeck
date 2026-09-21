@@ -57,7 +57,7 @@ export function CapabilitiesSection() {
         <div className="mt-2">
           <Link
             href="/sign-up"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#254ecc] hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-[#335cff] px-6 py-2.5 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-all hover:bg-[#2547d8] active:bg-[#2547d8] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <span>Start for free</span>
             <ArrowRight className="size-4" />
