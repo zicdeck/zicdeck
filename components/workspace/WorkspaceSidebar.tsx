@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspacePricingModal } from "./WorkspacePricingModalContext";
 
 interface TaskItem {
   id: string;
@@ -43,6 +44,7 @@ export function WorkspaceSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { openPricingModal } = useWorkspacePricingModal();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
@@ -371,6 +373,7 @@ export function WorkspaceSidebar() {
               <div className="relative mb-4">
                 <button
                   type="button"
+                  onClick={openPricingModal}
                   className="flex h-14 w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--border)] bg-white px-4 text-start transition-colors hover:bg-black/[0.02] shadow-2xs"
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -552,6 +555,10 @@ export function WorkspaceSidebar() {
                   <span className="text-xs text-[var(--muted)] leading-4 font-medium">Free Plan</span>
                   <button
                     type="button"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      openPricingModal();
+                    }}
                     className="h-[25px] rounded-full bg-[#335cff] hover:bg-[#2547d8] px-[10px] text-[11px] font-medium text-white transition-colors cursor-pointer"
                   >
                     Upgrade

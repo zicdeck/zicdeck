@@ -13,6 +13,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { ChatComposer } from "@/components/ChatComposer";
+import { useWorkspacePricingModal } from "@/components/workspace/WorkspacePricingModalContext";
 import { cn } from "@/lib/utils";
 
 interface ShowcaseItem {
@@ -217,6 +218,7 @@ const ACTION_PILLS = [
 ];
 
 export default function NewTaskPage() {
+  const { openPricingModal } = useWorkspacePricingModal();
   const [selectedCategory, setSelectedCategory] = useState("All Showcases");
 
   const filteredShowcases = SHOWCASE_ITEMS.filter((item) =>
@@ -231,6 +233,7 @@ export default function NewTaskPage() {
           <div className="pointer-events-auto flex w-full justify-center">
             <button
               type="button"
+              onClick={openPricingModal}
               className="inline-flex h-8.5 max-w-[calc(100%-32px)] min-w-20 cursor-pointer items-center justify-between gap-2 rounded-full bg-[#fff7f1] px-3.5 py-1 text-xs sm:text-[13px] font-medium text-[var(--ink)] transition-all hover:bg-[#ffeee2]"
             >
               <span className="flex min-w-0 items-center gap-1.5">
