@@ -12,10 +12,10 @@ import Image from "next/image";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-[var(--paper)] text-[var(--ink)] selection:bg-[var(--accent-soft)] selection:text-[var(--accent)]">
+    <div className="min-h-screen flex flex-col overflow-x-clip bg-[var(--paper)] text-[var(--ink)] selection:bg-[var(--accent-soft)] selection:text-[var(--accent)]">
       <Navbar />
 
-      <main>
+      <main className="grow-[1]">
         <section className="mx-auto max-w-6xl px-5 pb-20 pt-16 text-center sm:px-8 sm:pt-24 lg:pb-28 lg:pt-28">
           <div className="mx-auto flex max-w-4xl flex-col items-center relative">
             <div className="absolute w-[120%] h-[110px] rounded-[120%] top-[-10px] bg-accent/40 blur-[100px] animate-fade-in"></div>

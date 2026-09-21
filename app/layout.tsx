@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Space_Grotesk, Inter } from "next/font/google";
+import { Geist, Inter } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -7,12 +7,6 @@ import { ClerkProvider } from "@clerk/nextjs";
 const geist = Geist({
   variable: "--font-geist",
   subsets: ["latin"],
-});
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
 });
 
 const inter = Inter({
@@ -35,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`${geist.variable} ${spaceGrotesk.variable} ${inter.variable} min-h-full font-sans antialiased`}
+        className={`${geist.variable} ${inter.variable} min-h-full font-sans antialiased`}
       >
         <ClerkProvider dynamic>
           <ConvexClientProvider>{children}</ConvexClientProvider>

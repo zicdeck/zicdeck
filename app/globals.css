@@ -21,7 +21,26 @@
 
   --font-display: var(--font-geist), sans-serif;
   --font-sans: var(--font-inter), sans-serif;
-  --font-space-grotesk: var(--font-space-grotesk), sans-serif;
+}
+
+.auth-shell[data-theme="dark"] {
+  --paper: #121214;
+  --surface: #171719;
+  --ink: #f8f8fa;
+  --muted: #9595a0;
+  --border: #2b2b32;
+  --accent: #5b8cff;
+  --accent-soft: #20293d;
+}
+
+.auth-shell[data-theme="light"] {
+  --paper: #f7f8fc;
+  --surface: #ffffff;
+  --ink: #17171c;
+  --muted: #686874;
+  --border: #dedfe7;
+  --accent: #2F5EFF;
+  --accent-soft: #edf2fe;
 }
 
 body {
@@ -34,10 +53,6 @@ body {
 
 h1, h2, h3, h4, h5, h6, .font-display {
   font-family: var(--font-geist), sans-serif;
-}
-
-.font-space-grotesk {
-  font-family: var(--font-space-grotesk), sans-serif;
 }
 
 @keyframes fade-in-up {
