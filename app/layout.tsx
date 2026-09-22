@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Inter } from "next/font/google";
+import { Geist, Inter, Figtree } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -11,6 +11,12 @@ const geist = Geist({
 
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const figtree = Figtree({
+  variable: "--font-figtree",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -29,7 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`${geist.variable} ${inter.variable} min-h-full font-sans antialiased`}
+        className={`${geist.variable} ${inter.variable} ${figtree.variable} min-h-full font-sans antialiased`}
       >
         <ClerkProvider dynamic>
           <ConvexClientProvider>{children}</ConvexClientProvider>

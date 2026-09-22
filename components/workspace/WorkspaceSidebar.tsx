@@ -117,13 +117,18 @@ export function WorkspaceSidebar() {
             </Link>
 
             {/* Library Button */}
-            <button
-              type="button"
+            <Link
+              href="/workspace/library"
               title="Library"
-              className="mt-2 flex size-9 items-center justify-center rounded-full border border-transparent text-[var(--muted)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)] transition-colors cursor-pointer"
+              className={cn(
+                "mt-2 flex size-9 items-center justify-center rounded-full border border-transparent transition-all cursor-pointer",
+                pathname === "/workspace/library"
+                  ? "bg-black/[0.08] dark:bg-white/[0.12] text-[var(--ink)]"
+                  : "text-[var(--muted)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)]"
+              )}
             >
               <LibraryBig className="size-4" strokeWidth={1.8} />
-            </button>
+            </Link>
 
             {/* Collapsed Task Item */}
             <div className="relative min-h-0 w-full flex-1 pt-4 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -227,9 +232,14 @@ export function WorkspaceSidebar() {
               </Link>
 
               {/* Library Action */}
-              <button
-                type="button"
-                className="mt-1.5 flex h-9.5 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-1.5 text-start text-[var(--muted)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)] transition-colors"
+              <Link
+                href="/workspace/library"
+                className={cn(
+                  "mt-1.5 flex h-9.5 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-1.5 text-start transition-colors",
+                  pathname === "/workspace/library"
+                    ? "bg-black/[0.06] dark:bg-white/[0.08] text-[var(--ink)] font-medium shadow-2xs"
+                    : "text-[var(--muted)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[var(--ink)]"
+                )}
               >
                 <span className="flex size-4 shrink-0 items-center justify-center">
                   <LibraryBig className="size-4" strokeWidth={1.8} />
@@ -237,7 +247,7 @@ export function WorkspaceSidebar() {
                 <span className="min-w-0 truncate text-sm font-normal font-sans leading-5">
                   Library
                 </span>
-              </button>
+              </Link>
 
               {/* Divider */}
               <div className="mt-4 mb-2 border-b border-[var(--border)]" />

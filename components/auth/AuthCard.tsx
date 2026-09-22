@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle } from "lucide-react";
@@ -32,22 +32,24 @@ export function AuthCard({
   headerActionLabel = "Login",
   headerHref = "/sign-in",
   onHeaderActionClick,
-  footer,
   className,
 }: AuthCardProps) {
-  const [theme, setTheme] = useState<AuthTheme>("dark");
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("zicdeck-auth-theme");
-    if (savedTheme === "light" || savedTheme === "dark") {
-      setTheme(savedTheme);
+  const [theme, setTheme] = useState<AuthTheme>(() => {
+    if (typeof window !== "undefined") {
+      const savedTheme = window.localStorage.getItem("zicdeck-auth-theme");
+      if (savedTheme === "light" || savedTheme === "dark") {
+        return savedTheme;
+      }
     }
-  }, []);
+    return "dark";
+  });
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
-    window.localStorage.setItem("zicdeck-auth-theme", nextTheme);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("zicdeck-auth-theme", nextTheme);
+    }
   };
 
   return (

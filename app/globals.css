@@ -10,6 +10,10 @@
   --border: #E5E4DF;
   --accent: #2F5EFF;
   --accent-soft: #EDF1FF;
+  --light-gray: rgba(0, 0, 0, 0.04);
+  --light-gray-hover: rgba(0, 0, 0, 0.08);
+  --dark-btn-bg: #14151A;
+  --dark-btn-fg: #FFFFFF;
 }
 
 input:-webkit-autofill,
@@ -33,8 +37,17 @@ select:-webkit-autofill {
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
 
+  --color-default: var(--ink);
+  --color-mute: var(--muted);
+  --color-workspace-content: var(--surface);
+  --color-light-gray: var(--light-gray);
+  --color-light-gray-hover: var(--light-gray-hover);
+  --color-dark: var(--dark-btn-bg);
+  --color-dark-foreground: var(--dark-btn-fg);
+
   --font-display: var(--font-geist), sans-serif;
   --font-sans: var(--font-inter), sans-serif;
+  --font-figtree: var(--font-figtree), var(--font-inter), sans-serif;
 }
 
 .auth-shell[data-theme="dark"] {
@@ -65,6 +78,10 @@ select:-webkit-autofill {
   --border: #343431;
   --accent: #3b66ff;
   --accent-soft: rgba(59, 102, 255, 0.14);
+  --light-gray: rgba(255, 255, 255, 0.08);
+  --light-gray-hover: rgba(255, 255, 255, 0.14);
+  --dark-btn-bg: #f3f3ee;
+  --dark-btn-fg: #14151a;
 }
 
 .workspace-shell[data-theme="light"] {
@@ -75,6 +92,10 @@ select:-webkit-autofill {
   --border: #E5E4DF;
   --accent: #2F5EFF;
   --accent-soft: #EDF1FF;
+  --light-gray: rgba(0, 0, 0, 0.04);
+  --light-gray-hover: rgba(0, 0, 0, 0.08);
+  --dark-btn-bg: #14151A;
+  --dark-btn-fg: #FFFFFF;
 }
 
 body {

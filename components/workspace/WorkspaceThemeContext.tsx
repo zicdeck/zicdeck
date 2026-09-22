@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export type WorkspaceTheme = "light" | "dark";
 
@@ -15,16 +15,15 @@ const WorkspaceThemeContext = createContext<WorkspaceThemeContextType | undefine
 );
 
 export function WorkspaceThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<WorkspaceTheme>("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const saved = window.localStorage.getItem("zicdeck-workspace-theme") as WorkspaceTheme | null;
-    if (saved === "light" || saved === "dark") {
-      setThemeState(saved);
+  const [theme, setThemeState] = useState<WorkspaceTheme>(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("zicdeck-workspace-theme") as WorkspaceTheme | null;
+      if (saved === "light" || saved === "dark") {
+        return saved;
+      }
     }
-  }, []);
+    return "light";
+  });
 
   const setTheme = (newTheme: WorkspaceTheme) => {
     setThemeState(newTheme);
