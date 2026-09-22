@@ -7,11 +7,10 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Tools", href: "#tools" },
-  { label: "Templates", href: "#templates" },
-  { label: "Blog", href: "#blog" },
-  { label: "Community", href: "#community" },
+  { label: "Product", href: "#product" },
+  { label: "Capabilities", href: "#capabilities" },
   { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 export function Navbar() {

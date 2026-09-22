@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle } from "lucide-react";
@@ -22,6 +22,33 @@ interface AuthCardProps {
 
 type AuthTheme = "light" | "dark";
 
+const AUTH_THEME_STORAGE_KEY = "zicdeck-auth-theme";
+
+function subscribeAuthTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("zicdeck-auth-theme-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("zicdeck-auth-theme-change", callback);
+  };
+}
+
+function getAuthThemeSnapshot(): AuthTheme {
+  try {
+    const saved = localStorage.getItem(AUTH_THEME_STORAGE_KEY);
+    if (saved === "light" || saved === "dark") {
+      return saved;
+    }
+  } catch {
+    // fallback
+  }
+  return "dark";
+}
+
+function getAuthThemeServerSnapshot(): AuthTheme {
+  return "dark";
+}
+
 export function AuthCard({
   title,
   subtitle,
@@ -34,27 +61,22 @@ export function AuthCard({
   onHeaderActionClick,
   className,
 }: AuthCardProps) {
-  const [theme, setTheme] = useState<AuthTheme>(() => {
-    if (typeof window !== "undefined") {
-      const savedTheme = window.localStorage.getItem("zicdeck-auth-theme");
-      if (savedTheme === "light" || savedTheme === "dark") {
-        return savedTheme;
-      }
-    }
-    return "dark";
-  });
+  const theme = useSyncExternalStore(subscribeAuthTheme, getAuthThemeSnapshot, getAuthThemeServerSnapshot);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("zicdeck-auth-theme", nextTheme);
+    try {
+      localStorage.setItem(AUTH_THEME_STORAGE_KEY, nextTheme);
+      window.dispatchEvent(new Event("zicdeck-auth-theme-change"));
+    } catch {
+      // ignore
     }
   };
 
   return (
     <main
       data-theme={theme}
+      suppressHydrationWarning
       className="auth-shell relative min-h-dvh w-full overflow-auto bg-[linear-gradient(180deg,#18369f_0%,#2547d8_25%,#335cff_50%,#7892ff_75%,#dce4ff_100%)] p-2 min-[1181px]:h-dvh min-[1181px]:min-h-[640px] min-[1181px]:overflow-hidden min-[1181px]:p-0 selection:bg-white/20 selection:text-white"
     >
       <div className="relative mx-auto min-h-[calc(100dvh_-_16px)] w-full max-w-[1440px] min-[1181px]:h-dvh min-[1181px]:min-h-[640px]">

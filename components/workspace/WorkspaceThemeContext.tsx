@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useSyncExternalStore, ReactNode } from "react";
 
 export type WorkspaceTheme = "light" | "dark";
 
@@ -14,21 +14,42 @@ const WorkspaceThemeContext = createContext<WorkspaceThemeContextType | undefine
   undefined
 );
 
-export function WorkspaceThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<WorkspaceTheme>(() => {
-    if (typeof window !== "undefined") {
-      const saved = window.localStorage.getItem("zicdeck-workspace-theme") as WorkspaceTheme | null;
-      if (saved === "light" || saved === "dark") {
-        return saved;
-      }
+const THEME_STORAGE_KEY = "zicdeck-workspace-theme";
+
+function subscribeTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("zicdeck-theme-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("zicdeck-theme-change", callback);
+  };
+}
+
+function getThemeSnapshot(): WorkspaceTheme {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "light" || saved === "dark") {
+      return saved;
     }
-    return "light";
-  });
+  } catch {
+    // fallback
+  }
+  return "light";
+}
+
+function getThemeServerSnapshot(): WorkspaceTheme {
+  return "light";
+}
+
+export function WorkspaceThemeProvider({ children }: { children: ReactNode }) {
+  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
 
   const setTheme = (newTheme: WorkspaceTheme) => {
-    setThemeState(newTheme);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("zicdeck-workspace-theme", newTheme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      window.dispatchEvent(new Event("zicdeck-theme-change"));
+    } catch {
+      // ignore storage errors
     }
   };
 
@@ -41,6 +62,7 @@ export function WorkspaceThemeProvider({ children }: { children: ReactNode }) {
     <WorkspaceThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       <div
         data-theme={theme}
+        suppressHydrationWarning
         className={`workspace-shell ${theme === "dark" ? "dark bg-[#181817]" : "bg-accent/5"} flex h-screen w-full overflow-hidden text-[var(--ink)] selection:bg-[var(--accent-soft)] selection:text-[var(--accent)] transition-colors duration-200`}
       >
         {children}

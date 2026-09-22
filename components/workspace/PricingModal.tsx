@@ -6,27 +6,27 @@ import { useWorkspacePricingModal } from "./WorkspacePricingModalContext";
 import { cn } from "@/lib/utils";
 
 const MAIN_FEATURES = [
-  "20,000 AI credits",
-  "500 AI refreshes",
-  "100 articles monthly",
-  "900 tracked keywords",
-  "25 tracked competitors",
-  "Fable and GPT access",
-  "MCP and API access",
-  "Backlink exchange",
-  "Priority support",
+  "Unlimited deck imports (.pptx & Google Slides)",
+  "Natural language slide editing in chat",
+  "Automatic corporate typography & layout preservation",
+  "PDF briefs, financials & document context upload",
+  "Multi-slide narrative & structure updates",
+  "Single-user private workspace",
+  "Slide-by-slide visual diff & version history",
+  "Native PowerPoint & Google Slides export",
+  "Standard email support",
 ];
 
 const POWER_FEATURES = [
-  "45,000 AI credits",
-  "1,000 AI refreshes",
-  "200 articles monthly",
-  "2,000 tracked keywords",
-  "50 tracked competitors",
-  "20x API capacity",
-  "20x crawl capacity",
-  "Backlink exchange",
-  "Priority support",
+  "Everything in Main, plus:",
+  "Shared team workspaces with colleague invites",
+  "Centralized team deck library & shared templates",
+  "Multi-user presentation collaboration",
+  "Role-based permissions (Admin, Editor, Viewer)",
+  "Organization-wide brand guidelines & font tokens",
+  "High-priority slide rendering pipeline",
+  "Team-wide audit logs & version rollback",
+  "Dedicated corporate support & onboarding",
 ];
 
 function useSteppedCounter(targetValue: number, stepIntervalMs: number = 10) {
@@ -173,7 +173,7 @@ export function PricingModal() {
                   </span>
                 </div>
                 <p className="mt-1.5 font-sans text-xs text-[var(--muted)]">
-                  For teams managing recurring visibility workflows.
+                  For individual corporate professionals refining high-stakes decks under pressure.
                 </p>
 
                 {/* Price Row */}
@@ -229,7 +229,7 @@ export function PricingModal() {
                   </h3>
                 </div>
                 <p className="mt-1.5 font-sans text-xs text-[var(--muted)]">
-                  For high-volume teams and demanding operations.
+                  For corporate teams collaborating in shared workspaces with strict brand compliance.
                 </p>
 
                 {/* Price Row */}

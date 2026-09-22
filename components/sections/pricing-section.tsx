@@ -8,27 +8,27 @@ import { FadeUp } from "@/components/ui/fade-up";
 import Image from "next/image";
 
 const MAIN_FEATURES = [
-  "20,000 AI credits",
-  "500 AI refreshes",
-  "100 articles monthly",
-  "900 tracked keywords",
-  "25 tracked competitors",
-  "Fable and GPT access",
-  "MCP and API access",
-  "Backlink exchange",
-  "Priority support",
+  "Unlimited deck imports (.pptx & Google Slides)",
+  "Natural language slide editing in chat",
+  "Automatic corporate typography & layout preservation",
+  "PDF briefs, financials & document context upload",
+  "Multi-slide narrative & structure updates",
+  "Single-user private workspace",
+  "Slide-by-slide visual diff & version history",
+  "Native PowerPoint & Google Slides export",
+  "Standard email support",
 ];
 
 const POWER_FEATURES = [
-  "45,000 AI credits",
-  "1,000 AI refreshes",
-  "200 articles monthly",
-  "2,000 tracked keywords",
-  "50 tracked competitors",
-  "20x API capacity",
-  "20x crawl capacity",
-  "Backlink exchange",
-  "Priority support",
+  "Everything in Main, plus:",
+  "Shared team workspaces with colleague invites",
+  "Centralized team deck library & shared templates",
+  "Multi-user presentation collaboration",
+  "Role-based permissions (Admin, Editor, Viewer)",
+  "Organization-wide brand guidelines & font tokens",
+  "High-priority slide rendering pipeline",
+  "Team-wide audit logs & version rollback",
+  "Dedicated corporate support & onboarding",
 ];
 
 const AVATAR_IMAGES = [
@@ -81,7 +81,7 @@ export function PricingSection() {
           <div className="w-[15px]">
             <Image src={'/tag.svg'} alt="tag icon" width={16} height={16} className="w-full h-auto object-cover" />
           </div>
-          <span className="text-ink text-[14px]">Designed for growing search teams</span>
+          <span className="text-ink text-[14px]">Designed for corporate presentation teams</span>
         </div>
 
         <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-[31px] md:text-[37px] lg:text-[51px] lg:leading-[1.1]">
@@ -89,7 +89,7 @@ export function PricingSection() {
         </h2>
 
         <p className="max-w-2xl font-sans text-sm leading-relaxed text-[var(--muted)] sm:text-base lg:text-[17px]">
-          Choose a plan that grows with your team, simple, transparent, and optimized for search impact.
+          Choose a plan built for high-stakes presentations — simple, transparent, and designed for team speed under pressure.
         </p>
       </FadeUp>
 
@@ -158,7 +158,7 @@ export function PricingSection() {
                 <span className="font-sans text-xs font-medium text-[var(--muted)]">Most popular</span>
               </div>
               <p className="mt-2 font-sans text-xs text-[var(--muted)] sm:text-sm">
-                For teams managing recurring visibility workflows.
+                For individual corporate professionals refining high-stakes decks under pressure.
               </p>
               {/* Price Row */}
               <div className="mt-6 flex items-baseline gap-1">
@@ -215,7 +215,7 @@ export function PricingSection() {
                 <h3 className="font-sans text-2xl font-bold tracking-tight text-[var(--ink)]">Power</h3>
               </div>
               <p className="mt-2 font-sans text-xs text-[var(--muted)] sm:text-sm">
-                For high-volume teams and demanding operations.
+                For corporate teams collaborating in shared workspaces with strict brand compliance.
               </p>
 
               {/* Price Row */}

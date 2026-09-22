@@ -10,8 +10,8 @@ import { ShieldCheck, Check, LockKeyhole } from "lucide-react";
 const TRUST_POINTS = [
   { title: "Zero model training on customer data", description: "Your presentations, text inputs, and proprietary slide structures are strictly processed for editing and are never used to train or fine-tune public AI models." },
   { title: "End-to-end data encryption", description: "All deck transfers and document operations are encrypted in transit via TLS 1.3 and at rest with AES-256 encryption standards." },
-  { title: "Isolated corporate workspaces", description: "Strict multi-tenant boundary isolation ensures only authenticated colleagues within your designated organization can view or edit shared decks." },
-  { title: "Enterprise authentication & access controls", description: "Role-based permission levels with domain-level restrictions and SAML SSO integration readiness for enterprise teams." },
+  { title: "Isolated team workspaces & org boundaries", description: "Teams collaborate inside designated, organization-bounded workspaces. Multi-tenant isolation ensures only invited colleagues can view shared decks, edit slides, or access team template libraries." },
+  { title: "Role-based team permissions & SAML SSO", description: "Granular access controls (Admin, Editor, Viewer) across presentation workspaces, supported by company domain restrictions and SAML 2.0 / Okta SSO readiness for enterprise deployment." },
 ];
 
 export function SecuritySection() {
@@ -27,7 +27,7 @@ export function SecuritySection() {
                 <div className="flex size-16 items-center justify-center rounded-2xl bg-white text-[var(--accent)] shadow-[0_10px_24px_rgba(47,94,255,0.14)] ring-1 ring-[#D9E1FF]"><ShieldCheck className="size-8" /></div>
                 <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-[#D6DEFF] bg-white/80 px-3 py-1 text-[11px] font-semibold text-[var(--accent)]"><LockKeyhole className="size-3.5" /> Enterprise Trust &amp; Security</div>
                 <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-[-0.055em] text-[var(--ink)] sm:text-4xl">Confidential decks stay strictly confidential.</h2>
-                <p className="mt-4 text-base leading-7 text-[var(--muted)]">Board meetings, M&amp;A decks, and internal financials require uncompromising data privacy. Zicdeck is built around strict enterprise isolation from day one.</p>
+                <p className="mt-4 text-base leading-7 text-[var(--muted)]">Board meetings, M&amp;A decks, and internal financials require uncompromising data privacy. Zicdeck is built around strict team workspace isolation and enterprise-grade access controls from day one.</p>
               </div>
               <div className="mt-10 rounded-xl border border-[#D6DEFF] bg-white/75 p-4 text-xs leading-5 text-[var(--muted)]">Questions regarding our security architecture? <a href="mailto:security@zicdeck.com" className="font-semibold text-[var(--ink)] underline decoration-[var(--accent)] underline-offset-3 transition-colors hover:text-[var(--accent)]">Contact our security team</a></div>
             </div>

@@ -33,7 +33,7 @@ export default function LandingPage() {
                   </span>
 
                   <span className="shrink-0 whitespace-nowrap text-xs font-medium font-['Inter'] leading-normal text-default">
-                    PDF to Slides, build in chat
+                    Team Workspaces for PowerPoint &amp; Google Slides
                   </span>
                 </div>
 
