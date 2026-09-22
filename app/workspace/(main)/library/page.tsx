@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   CloudUpload,
   Sparkles,
@@ -19,110 +20,15 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface LibraryItem {
-  id: string;
-  title: string;
-  date: string;
-  category: "Presentations" | "Documents" | "Sheets" | "Images";
-  type: "doc" | "slides";
-  aspect: "portrait-centered" | "full";
-  image: string;
-  size?: string;
-  slidesCount?: number;
-}
-
-const INITIAL_OUTPUTS: LibraryItem[] = [
-  {
-    id: "1",
-    title: "Dokie Product Introduction",
-    date: "Sep 22, 2026",
-    category: "Documents",
-    type: "doc",
-    aspect: "portrait-centered",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_10036/project_653998/6b/764625ed15.png?imageMogr2/format/webp",
-    size: "1.4 MB",
-    slidesCount: 8,
-  },
-  {
-    id: "2",
-    title: "Dokie Product Guide",
-    date: "Sep 22, 2026",
-    category: "Presentations",
-    type: "slides",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_10036/project_660704/8f/bc0c9c0c37.png?imageMogr2/format/webp",
-    size: "2.1 MB",
-    slidesCount: 12,
-  },
-  {
-    id: "3",
-    title: "Dokie Product Introduction",
-    date: "Sep 22, 2026",
-    category: "Presentations",
-    type: "slides",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_10036/project_660703/b8/599bee543b.png?imageMogr2/format/webp",
-    size: "3.2 MB",
-    slidesCount: 16,
-  },
-  {
-    id: "4",
-    title: "X-Men History in Marvel",
-    date: "Mar 24, 2026",
-    category: "Presentations",
-    type: "slides",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_191259/project_473808/03/7435fbf299.png?imageMogr2/format/webp",
-    size: "4.8 MB",
-    slidesCount: 24,
-  },
-  {
-    id: "5",
-    title: "Dokie Tutorial",
-    date: "Oct 28, 2025",
-    category: "Presentations",
-    type: "slides",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_10001/project_4107/47/0a2daf4400ab5fd859285268b3801714.jpg?imageMogr2/format/webp",
-    size: "1.8 MB",
-    slidesCount: 10,
-  },
-];
-
-const INITIAL_UPLOADED: LibraryItem[] = [
-  {
-    id: "up-1",
-    title: "Quarterly Strategy Q3.pdf",
-    date: "Sep 18, 2026",
-    category: "Documents",
-    type: "doc",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_10036/project_660704/8f/bc0c9c0c37.png?imageMogr2/format/webp",
-    size: "3.4 MB",
-  },
-  {
-    id: "up-2",
-    title: "Product Architecture Diagram.png",
-    date: "Sep 10, 2026",
-    category: "Images",
-    type: "doc",
-    aspect: "full",
-    image:
-      "https://ai-ppt-1311181695.cos.na-siliconvalley.myqcloud.com/user_191259/project_473808/03/7435fbf299.png?imageMogr2/format/webp",
-    size: "820 KB",
-  },
-];
-
-const FILTER_OPTIONS = ["All", "Presentations", "Documents", "Sheets", "Images"];
+import {
+  LibraryItem,
+  INITIAL_OUTPUTS,
+  INITIAL_UPLOADED,
+  FILTER_OPTIONS,
+} from "@/lib/library-data";
 
 export default function LibraryPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"outputs" | "uploaded">("outputs");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedFilter, setSelectedFilter] = useState("All");
@@ -213,6 +119,12 @@ export default function LibraryPage() {
       setUploadedItems((prev) => [duplicate, ...prev]);
     }
     setActiveMenuId(null);
+  };
+
+  const handleOpenItem = (item: LibraryItem) => {
+    if (item.category === "Presentations" || item.type === "slides") {
+      router.push(`/workspace/${item.id}`);
+    }
   };
 
   return (
@@ -444,6 +356,7 @@ export default function LibraryPage() {
                       <button
                         type="button"
                         aria-label={item.title}
+                        onClick={() => handleOpenItem(item)}
                         className="aspect-[264/148.5] w-full cursor-pointer overflow-hidden rounded-xl outline-none"
                       >
                         <div className="relative size-full overflow-hidden rounded-xl border border-[var(--border)] bg-light-gray shadow-none outline-none transition-transform duration-200 group-hover:scale-[1.015]">
@@ -481,7 +394,12 @@ export default function LibraryPage() {
                         <div className="min-w-0 flex-1">
                           <div
                             title={item.title}
-                            className="truncate text-sm font-medium font-['Figtree'] leading-5 text-default"
+                            onClick={() => handleOpenItem(item)}
+                            className={cn(
+                              "truncate text-sm font-medium font-['Figtree'] leading-5 text-default",
+                              (item.category === "Presentations" || item.type === "slides") &&
+                                "cursor-pointer hover:underline"
+                            )}
                           >
                             {item.title}
                           </div>
@@ -529,7 +447,10 @@ export default function LibraryPage() {
                               <button
                                 type="button"
                                 role="menuitem"
-                                onClick={() => setActiveMenuId(null)}
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  handleOpenItem(item);
+                                }}
                                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-start text-default hover:bg-light-gray-hover transition-colors"
                               >
                                 <ExternalLink className="size-3.5 text-mute" />
@@ -646,7 +567,10 @@ export default function LibraryPage() {
                               >
                                 <button
                                   type="button"
-                                  onClick={() => setActiveMenuId(null)}
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    handleOpenItem(item);
+                                  }}
                                   className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-start text-default hover:bg-light-gray-hover transition-colors"
                                 >
                                   <ExternalLink className="size-3.5 text-mute" />
