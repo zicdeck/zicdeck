@@ -171,7 +171,7 @@ export default function LibraryPage() {
           </div>
 
           {/* Sticky Tabs & Controls Bar */}
-          <div className="sticky top-0 z-10 shrink-0 border-b border-transparent bg-workspace-content/95 backdrop-blur-md transition-colors">
+          <div className="sticky top-0 z-10 shrink-0 transition-colors">
             <div className="px-6">
               <div className="mx-auto w-full max-w-[1120px]">
                 <div className="flex shrink-0 items-center justify-between gap-4 py-6">

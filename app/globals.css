@@ -14,6 +14,7 @@
   --light-gray-hover: rgba(0, 0, 0, 0.08);
   --dark-btn-bg: #14151A;
   --dark-btn-fg: #FFFFFF;
+  --tab-bar: #ecece8;
 }
 
 input:-webkit-autofill,
@@ -40,6 +41,7 @@ select:-webkit-autofill {
   --color-default: var(--ink);
   --color-mute: var(--muted);
   --color-workspace-content: var(--surface);
+  --color-tab-bar: var(--tab-bar);
   --color-light-gray: var(--light-gray);
   --color-light-gray-hover: var(--light-gray-hover);
   --color-dark: var(--dark-btn-bg);
@@ -82,6 +84,7 @@ select:-webkit-autofill {
   --light-gray-hover: rgba(255, 255, 255, 0.14);
   --dark-btn-bg: #f3f3ee;
   --dark-btn-fg: #14151a;
+  --tab-bar: #141416;
 }
 
 .workspace-shell[data-theme="light"] {
@@ -96,6 +99,7 @@ select:-webkit-autofill {
   --light-gray-hover: rgba(0, 0, 0, 0.08);
   --dark-btn-bg: #14151A;
   --dark-btn-fg: #FFFFFF;
+  --tab-bar: #ecece8;
 }
 
 body {

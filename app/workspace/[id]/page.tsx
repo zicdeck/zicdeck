@@ -33,6 +33,7 @@ import {
   RotateCcw,
   Sparkles,
   Sun,
+  Trash2,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -198,10 +199,19 @@ export default function PresentationPage({
   const { theme, toggleTheme } = useWorkspaceTheme();
   const presentation = INITIAL_OUTPUTS.find((item) => item.id === id);
   const title = presentation?.title || `Presentation ${id}`;
-  const totalSlides = presentation?.slidesCount || 24;
+  const initialSlidesCount = presentation?.slidesCount || 24;
 
+  const [slides, setSlides] = useState<Array<{ id: number; title: string }>>(() =>
+    Array.from({ length: initialSlidesCount }, (_, index) => ({
+      id: index + 1,
+      title: SLIDE_TITLES[index % SLIDE_TITLES.length] || `Slide ${index + 1}`,
+    }))
+  );
   const [activeTab, setActiveTab] = useState<"presentation" | "outline">("presentation");
   const [currentSlide, setCurrentSlide] = useState(1);
+  const [sidebarViewMode, setSidebarViewMode] = useState<"grid" | "list">("grid");
+  const [deletedHistory, setDeletedHistory] = useState<Array<{ slide: { id: number; title: string }; index: number }>>([]);
+  const [deleteAlert, setDeleteAlert] = useState<{ slideNumber: number; slideTitle: string } | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [selectedModel, setSelectedModel] = useState<ChatModel>(MODELS[0]);
@@ -216,6 +226,103 @@ export default function PresentationPage({
   const thumbnailRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const wheelAccumulatorRef = useRef(0);
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentSlideIndex = Math.max(0, slides.findIndex((s) => s.id === currentSlide));
+  const currentSlideItem = slides[currentSlideIndex] || slides[0];
+  const currentSlideNumber = currentSlideIndex + 1;
+
+  const handleAddSlide = () => {
+    const newId = Math.max(0, ...slides.map((s) => s.id)) + 1;
+    const insertIndex = currentSlideIndex + 1;
+    const newSlide = {
+      id: newId,
+      title: SLIDE_TITLES[insertIndex % SLIDE_TITLES.length] || `Slide ${newId}`,
+    };
+    const nextSlides = [...slides];
+    nextSlides.splice(insertIndex, 0, newSlide);
+    setSlides(nextSlides);
+    setCurrentSlide(newId);
+  };
+
+  const handleDeleteSlide = (slideIdToDelete?: number) => {
+    const targetId = slideIdToDelete ?? currentSlide;
+    const slideIndex = slides.findIndex((s) => s.id === targetId);
+    if (slideIndex === -1 || slides.length <= 1) return;
+
+    const deletedSlide = slides[slideIndex];
+    const slideNumber = slideIndex + 1;
+
+    setDeletedHistory((prev) => [...prev, { slide: deletedSlide, index: slideIndex }]);
+
+    const nextSlides = slides.filter((s) => s.id !== targetId);
+    setSlides(nextSlides);
+
+    const nextActiveIndex = Math.min(slideIndex, nextSlides.length - 1);
+    setCurrentSlide(nextSlides[nextActiveIndex].id);
+
+    setSelectedSlides((prev) => prev.filter((num) => num !== slideNumber));
+
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    setDeleteAlert({
+      slideNumber,
+      slideTitle: deletedSlide.title,
+    });
+
+    alertTimerRef.current = setTimeout(() => {
+      setDeleteAlert(null);
+    }, 8000);
+  };
+
+  const handleUndo = React.useCallback(() => {
+    if (deletedHistory.length === 0) return;
+
+    const lastEntry = deletedHistory[deletedHistory.length - 1];
+    const updatedHistory = deletedHistory.slice(0, -1);
+    setDeletedHistory(updatedHistory);
+
+    const nextSlides = [...slides];
+    const insertIndex = Math.min(lastEntry.index, nextSlides.length);
+    nextSlides.splice(insertIndex, 0, lastEntry.slide);
+    setSlides(nextSlides);
+    setCurrentSlide(lastEntry.slide.id);
+
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    if (updatedHistory.length > 0) {
+      const prevEntry = updatedHistory[updatedHistory.length - 1];
+      setDeleteAlert({
+        slideNumber: prevEntry.index + 1,
+        slideTitle: prevEntry.slide.title,
+      });
+      alertTimerRef.current = setTimeout(() => {
+        setDeleteAlert(null);
+      }, 8000);
+    } else {
+      setDeleteAlert(null);
+    }
+  }, [deletedHistory, slides]);
+
+  // Keyboard shortcut Ctrl + Z / Cmd + Z for undoing slide deletion
+  useEffect(() => {
+    const handleUndoKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        if (!isInput && deletedHistory.length > 0) {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleUndoKeyDown);
+    return () => window.removeEventListener("keydown", handleUndoKeyDown);
+  }, [deletedHistory, handleUndo]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -262,11 +369,15 @@ export default function PresentationPage({
             ? Math.max(1, Math.round(Math.abs(e.deltaY)))
             : Math.max(1, Math.round(Math.abs(e.deltaY) / 100));
 
-        setCurrentSlide((prev) =>
-          direction > 0
-            ? Math.min(totalSlides, prev + steps)
-            : Math.max(1, prev - steps)
-        );
+        setCurrentSlide((prev) => {
+          const idx = slides.findIndex((s) => s.id === prev);
+          if (idx === -1) return prev;
+          const targetIdx =
+            direction > 0
+              ? Math.min(slides.length - 1, idx + steps)
+              : Math.max(0, idx - steps);
+          return slides[targetIdx]?.id ?? prev;
+        });
         wheelAccumulatorRef.current = 0;
       } else {
         // Trackpad continuous scrolling: responsive accumulation without artificial delays
@@ -280,11 +391,21 @@ export default function PresentationPage({
         const TRACKPAD_STEP = 35;
         if (wheelAccumulatorRef.current >= TRACKPAD_STEP) {
           const steps = Math.floor(wheelAccumulatorRef.current / TRACKPAD_STEP);
-          setCurrentSlide((prev) => Math.min(totalSlides, prev + steps));
+          setCurrentSlide((prev) => {
+            const idx = slides.findIndex((s) => s.id === prev);
+            if (idx === -1) return prev;
+            const targetIdx = Math.min(slides.length - 1, idx + steps);
+            return slides[targetIdx]?.id ?? prev;
+          });
           wheelAccumulatorRef.current -= steps * TRACKPAD_STEP;
         } else if (wheelAccumulatorRef.current <= -TRACKPAD_STEP) {
           const steps = Math.floor(Math.abs(wheelAccumulatorRef.current) / TRACKPAD_STEP);
-          setCurrentSlide((prev) => Math.max(1, prev - steps));
+          setCurrentSlide((prev) => {
+            const idx = slides.findIndex((s) => s.id === prev);
+            if (idx === -1) return prev;
+            const targetIdx = Math.max(0, idx - steps);
+            return slides[targetIdx]?.id ?? prev;
+          });
           wheelAccumulatorRef.current += steps * TRACKPAD_STEP;
         }
       }
@@ -295,7 +416,7 @@ export default function PresentationPage({
       container.removeEventListener("wheel", handleWheel);
       if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
     };
-  }, [activeTab, totalSlides]);
+  }, [activeTab, slides]);
 
   // Keep active thumbnail visible in the sidebar instantly without animation delay
   useEffect(() => {
@@ -308,7 +429,7 @@ export default function PresentationPage({
         });
       }
     }
-  }, [currentSlide, activeTab]);
+  }, [currentSlide, activeTab, sidebarViewMode]);
 
   // Keyboard navigation for presentation slides
   useEffect(() => {
@@ -325,16 +446,26 @@ export default function PresentationPage({
 
       if (e.key === "ArrowDown" || e.key === "ArrowRight" || e.key === "PageDown") {
         e.preventDefault();
-        setCurrentSlide((prev) => Math.min(totalSlides, prev + 1));
+        setCurrentSlide((prev) => {
+          const idx = slides.findIndex((s) => s.id === prev);
+          if (idx === -1) return prev;
+          const nextIdx = Math.min(slides.length - 1, idx + 1);
+          return slides[nextIdx]?.id ?? prev;
+        });
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "PageUp") {
         e.preventDefault();
-        setCurrentSlide((prev) => Math.max(1, prev - 1));
+        setCurrentSlide((prev) => {
+          const idx = slides.findIndex((s) => s.id === prev);
+          if (idx === -1) return prev;
+          const prevIdx = Math.max(0, idx - 1);
+          return slides[prevIdx]?.id ?? prev;
+        });
       }
     };
 
     window.addEventListener("keydown", handleKeyScroll);
     return () => window.removeEventListener("keydown", handleKeyScroll);
-  }, [activeTab, totalSlides]);
+  }, [activeTab, slides]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -363,6 +494,7 @@ export default function PresentationPage({
       window.removeEventListener("resize", handleViewportChange);
       if (playCloseTimerRef.current) clearTimeout(playCloseTimerRef.current);
       if (copyFeedbackTimerRef.current) clearTimeout(copyFeedbackTimerRef.current);
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
     };
   }, []);
 
@@ -417,12 +549,12 @@ export default function PresentationPage({
 
     // Simulate intelligent platform AI response
     setTimeout(() => {
-      let aiResponseText = `I've analyzed slide ${currentSlide} and applied the revisions to **${title}**. All typography hierarchy, margins, and brand guidelines remain strictly compliant.`;
+      let aiResponseText = `I've analyzed slide ${currentSlideNumber} and applied the revisions to **${title}**. All typography hierarchy, margins, and brand guidelines remain strictly compliant.`;
 
       if (text.toLowerCase().includes("q4") || text.toLowerCase().includes("actual")) {
-        aiResponseText = `Updated slide ${currentSlide} with Q4 actuals. Data callouts and chart alignment have been rebalanced to match your executive template.`;
+        aiResponseText = `Updated slide ${currentSlideNumber} with Q4 actuals. Data callouts and chart alignment have been rebalanced to match your executive template.`;
       } else if (text.toLowerCase().includes("one line") || text.toLowerCase().includes("title")) {
-        aiResponseText = `Adjusted headline tracking and font weight on slide ${currentSlide}. The title now sits cleanly on a single line without breaking visual hierarchy.`;
+        aiResponseText = `Adjusted headline tracking and font weight on slide ${currentSlideNumber}. The title now sits cleanly on a single line without breaking visual hierarchy.`;
       } else if (text.toLowerCase().includes("column") || text.toLowerCase().includes("3")) {
         aiResponseText = `Rebuilt the slide architecture into a 3-column layout with equal gutters and aligned metrics.`;
       }
@@ -443,6 +575,35 @@ export default function PresentationPage({
 
   return (
     <div className="relative flex h-screen w-full min-w-0 flex-1 overflow-hidden bg-[var(--surface)] text-[var(--ink)]">
+      {/* Alert at top middle for Undo */}
+      {deleteAlert && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs font-medium text-[var(--ink)] shadow-[0_12px_36px_rgba(0,0,0,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-3 duration-200"
+        >
+          <span className="text-[var(--muted)]">
+            Slide {deleteAlert.slideNumber} has been deleted.
+          </span>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="font-semibold underline underline-offset-4 text-[var(--ink)] hover:opacity-75 transition-opacity cursor-pointer flex items-center gap-1.5"
+          >
+            <RotateCcw className="size-3" />
+            <span>Undo action</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteAlert(null)}
+            className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--light-gray)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+            aria-label="Dismiss alert"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* LEFT SECTION: AI Chat (380px compact, borderless)                        */}
       {/* ========================================================================= */}
@@ -766,71 +927,91 @@ export default function PresentationPage({
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden p-[12px]">
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-white dark:bg-workspace-content text-default transition-colors border border-[var(--border)] shadow-[0_10px_30px_rgba(20,21,26,0.06),0_1px_3px_rgba(20,21,26,0.03)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
           {/* Top Browser Style Tab Strip */}
-          <div className="relative z-40 flex h-9 shrink-0 items-end justify-between bg-[#ecece8] dark:bg-[#141416] select-none transition-colors">
-            <div className="flex h-9 min-w-0 items-end overflow-visible">
-              {/* Tab 1: Outline (Flush to left corner with no gap, matching reference) */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("outline")}
+          <div className="flex h-10 shrink-0 items-end overflow-x-auto bg-tab-bar">
+            {/* Outline Tab */}
+            <button
+              data-slot="button"
+              type="button"
+              onClick={() => setActiveTab("outline")}
+              className={cn(
+                "justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:cursor-not-allowed hover:text-dark dark:hover:text-default relative flex h-[36px] shrink-0 cursor-pointer items-center gap-1 rounded-tl-lg rounded-tr-lg rounded-b-none bg-transparent px-4 py-[6px]",
+                activeTab === "outline"
+                  ? "!bg-workspace-content text-default shadow-[0_-1px_10px_rgba(0,0,0,0.04)] hover:!bg-workspace-content dark:hover:!bg-workspace-content"
+                  : "text-mute shadow-none hover:bg-white/40 dark:hover:bg-white/10"
+              )}
+            >
+              <span
                 className={cn(
-                  "relative flex h-9 w-[110px] shrink-0 cursor-pointer items-center justify-center gap-2 text-xs font-medium outline-none transition-colors select-none",
-                  activeTab === "outline"
-                    ? "z-10 rounded-tl-[20px] rounded-tr-[10px] bg-[var(--surface)] text-[var(--ink)]"
-                    : "rounded-tl-[20px] rounded-tr-[10px] text-[var(--muted)] hover:bg-black/5 hover:text-[var(--ink)] dark:hover:bg-white/5"
+                  "max-w-[140px] truncate text-sm font-medium font-['Figtree'] leading-6",
+                  activeTab === "outline" ? "text-default" : "text-mute"
                 )}
-                aria-pressed={activeTab === "outline"}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" className="size-3.5 shrink-0">
-                  <g clipPath="url(#clip0_spiral_tab)">
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.35" d="M1.409 6.864c1.136-1.773 4.227-.955 4 .727-.324 2.394-2.91.636-3.636 1.41-.728.772 1.909 5.272 6.454 5.272 4.137 0 6.5-3.227 6.5-6.273 0-2.227-.864-4.273-2.273-5.682" />
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="1.35" d="M3.136 2.864c1.091-.273 2.591-.137 3.728.954M7.182 1.392c.954 0 2.136.29 3.045 1.608" />
-                  </g>
-                  <defs><clipPath id="clip0_spiral_tab"><path fill="#fff" d="M0 0h16v16H0z" /></clipPath></defs>
+                Outline
+              </span>
+              {activeTab === "presentation" && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  viewBox="0 0 12 12"
+                  className="pointer-events-none absolute end-0 bottom-0 size-3 -scale-x-100 text-white dark:text-workspace-content"
+                >
+                  <path fill="currentColor" d="M0 12h12C5.373 12 0 6.627 0 0z" />
                 </svg>
-                <span className="font-['Figtree']">Outline</span>
+              )}
+            </button>
 
-                {/* Right Scoop for Outline active tab */}
-                {activeTab === "outline" && (
-                  <svg viewBox="0 0 10 10" className="pointer-events-none absolute -right-[10px] bottom-0 size-[10px] text-[var(--surface)]" fill="currentColor">
-                    <path d="M 0,0 A 10,10 0 0,1 10,10 H 0 Z" />
-                  </svg>
-                )}
-              </button>
-
-              {/* Tab 2: Presentation */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("presentation")}
+            {/* Presentation Tab */}
+            <button
+              data-slot="button"
+              type="button"
+              onClick={() => setActiveTab("presentation")}
+              className={cn(
+                "justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:cursor-not-allowed hover:text-dark dark:hover:text-default relative flex h-[36px] shrink-0 cursor-pointer items-center gap-1 rounded-tl-lg rounded-tr-lg rounded-b-none bg-transparent px-4 py-[6px]",
+                activeTab === "presentation"
+                  ? "!bg-workspace-content text-default shadow-[0_-1px_10px_rgba(0,0,0,0.04)] hover:!bg-workspace-content dark:hover:!bg-workspace-content"
+                  : "text-mute shadow-none hover:bg-white/40 dark:hover:bg-white/10"
+              )}
+            >
+              <span
                 className={cn(
-                  "relative flex h-9 w-[136px] shrink-0 cursor-pointer items-center justify-center gap-2 text-xs font-medium outline-none transition-colors select-none",
-                  activeTab === "presentation"
-                    ? "z-10 rounded-t-[10px] bg-[var(--surface)] text-[var(--ink)]"
-                    : "rounded-t-[10px] text-[var(--muted)] hover:bg-black/5 hover:text-[var(--ink)] dark:hover:bg-white/5"
+                  "max-w-[140px] truncate text-sm font-medium font-['Figtree'] leading-6",
+                  activeTab === "presentation" ? "text-default" : "text-mute"
                 )}
-                aria-pressed={activeTab === "presentation"}
               >
-                {/* Left Scoop for Presentation active tab */}
-                {activeTab === "presentation" && (
-                  <svg viewBox="0 0 10 10" className="pointer-events-none absolute -left-[10px] bottom-0 size-[10px] text-[var(--surface)]" fill="currentColor">
-                    <path d="M 10,0 A 10,10 0 0,0 0,10 H 10 Z" />
-                  </svg>
-                )}
+                Presentation
+              </span>
+              {activeTab === "outline" && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  viewBox="0 0 12 12"
+                  className="pointer-events-none absolute start-0 bottom-0 size-3 text-white dark:text-workspace-content"
+                >
+                  <path fill="currentColor" d="M0 12h12C5.373 12 0 6.627 0 0z" />
+                </svg>
+              )}
+            </button>
 
-                <PresentationIcon className="size-3.5 shrink-0" strokeWidth={1.7} />
-                <span className="font-['Figtree']">Presentation</span>
-
-                {/* Right Scoop for Presentation active tab */}
-                {activeTab === "presentation" && (
-                  <svg viewBox="0 0 10 10" className="pointer-events-none absolute -right-[10px] bottom-0 size-[10px] text-[var(--surface)]" fill="currentColor">
-                    <path d="M 0,0 A 10,10 0 0,1 10,10 H 0 Z" />
-                  </svg>
-                )}
-              </button>
-            </div>
+            {activeTab === "presentation" && (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                fill="none"
+                viewBox="0 0 12 12"
+                className="pointer-events-none size-3 shrink-0 self-end text-white dark:text-workspace-content"
+              >
+                <path fill="currentColor" d="M0 12h12C5.373 12 0 6.627 0 0z" />
+              </svg>
+            )}
           </div>
 
           {/* Sub-toolbar under the tabs split with border-bottom */}
-          <div className="relative z-30 flex p-[1px] shrink-0 items-center justify-between text-[var(--ink)] transition-colors">
+          <div className="relative z-30 flex p-[16px] shrink-0 items-center justify-between text-[var(--ink)] transition-colors">
             {/* Left: Change color buttons under the tab */}
             <div className="flex items-center gap-1">
               <button
@@ -945,21 +1126,29 @@ export default function PresentationPage({
                 )}
               </div>
 
-              <div className="flex items-center gap-0.5 rounded-full border border-[var(--border)] bg-[var(--paper)] px-1 py-0.5">
+              <div className="flex items-center gap-0.5 rounded-full bg-[var(--paper)] px-1 py-0.5">
                 <button
                   type="button"
-                  onClick={() => setCurrentSlide((slide) => Math.max(1, slide - 1))}
-                  disabled={currentSlide <= 1}
+                  onClick={() => {
+                    if (currentSlideIndex > 0) {
+                      setCurrentSlide(slides[currentSlideIndex - 1].id);
+                    }
+                  }}
+                  disabled={currentSlideIndex <= 0}
                   className="inline-flex size-5 items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--light-gray)] hover:text-[var(--ink)] disabled:opacity-30 cursor-pointer"
                   aria-label="Previous slide"
                 >
                   <ChevronLeft className="size-3" />
                 </button>
-                <span className="min-w-9 text-center font-mono text-[10px] text-[var(--ink)]">{currentSlide} / {totalSlides}</span>
+                <span className="min-w-9 text-center font-mono text-[10px] text-[var(--ink)]">{currentSlideNumber} / {slides.length}</span>
                 <button
                   type="button"
-                  onClick={() => setCurrentSlide((slide) => Math.min(totalSlides, slide + 1))}
-                  disabled={currentSlide >= totalSlides}
+                  onClick={() => {
+                    if (currentSlideIndex < slides.length - 1) {
+                      setCurrentSlide(slides[currentSlideIndex + 1].id);
+                    }
+                  }}
+                  disabled={currentSlideIndex >= slides.length - 1}
                   className="inline-flex size-5 items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--light-gray)] hover:text-[var(--ink)] disabled:opacity-30 cursor-pointer"
                   aria-label="Next slide"
                 >
@@ -981,7 +1170,7 @@ export default function PresentationPage({
                 <button
                   type="button"
                   onClick={() => setOpenHeaderMenu((menu) => (menu === "share" ? null : "share"))}
-                  className="inline-flex h-7 items-center justify-center rounded-full border border-white/10 bg-[#335cff] px-3 text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#2547d8] active:bg-[#2547d8] cursor-pointer"
+                  className="inline-flex h-7 items-center justify-center rounded-full border border-white/10 bg-[#335cff] px-3 text-xs font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(14,18,27,0.18),0_0_0_1px_#335cff] transition-colors hover:bg-[#2547d8] active:bg-[#2547d8] cursor-pointer"
                   aria-haspopup="dialog"
                   aria-expanded={openHeaderMenu === "share"}
                 >
@@ -1043,7 +1232,7 @@ export default function PresentationPage({
                         onClick={() => setAllowDuplication((allowed) => !allowed)}
                         className={cn("relative h-5 w-10 shrink-0 rounded-full transition-colors cursor-pointer", allowDuplication ? "bg-[#335cff]" : "bg-[var(--border)]")}
                       >
-                        <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform", allowDuplication ? "translate-x-[21px]" : "translate-x-0.5")} />
+                        <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform", allowDuplication ? "-translate-x-[18px]" : "translate-x-0.5")} />
                       </button>
                     </div>
                   </div>
@@ -1059,10 +1248,36 @@ export default function PresentationPage({
                 {/* Floating Slide Thumbnail Sidebar */}
                 {isSidebarOpen ? (
                   <aside className="hidden md:flex flex-col w-[172px] shrink-0 self-center my-auto ml-4 rounded-2xl border border-[var(--border)] bg-[var(--paper)] dark:bg-[#19191d] shadow-[0_10px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] max-h-[70%] overflow-hidden z-20 transition-all">
-                    <div className="flex h-11 shrink-0 items-center gap-2 px-3 border-b border-[var(--border)]/60">
+                    <div className="flex h-11 shrink-0 items-center gap-2 px-3">
                       <div className="inline-flex h-7 items-center rounded-full bg-[var(--light-gray)] p-0.5">
-                        <button type="button" className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--surface)] text-[var(--accent)] shadow-sm cursor-pointer" aria-label="Thumbnail view"><Grid2X2 className="size-3.5" /></button>
-                        <button type="button" className="inline-flex size-6 items-center justify-center rounded-full text-[var(--muted)] cursor-pointer" aria-label="List view"><AlignLeft className="size-3.5" /></button>
+                        <button
+                          type="button"
+                          onClick={() => setSidebarViewMode("grid")}
+                          className={cn(
+                            "inline-flex size-6 items-center justify-center rounded-full transition-colors cursor-pointer",
+                            sidebarViewMode === "grid"
+                              ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs"
+                              : "text-[var(--muted)] hover:text-[var(--ink)]"
+                          )}
+                          aria-label="Thumbnail view"
+                          title="Thumbnail view"
+                        >
+                          <Grid2X2 className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSidebarViewMode("list")}
+                          className={cn(
+                            "inline-flex size-6 items-center justify-center rounded-full transition-colors cursor-pointer",
+                            sidebarViewMode === "list"
+                              ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs"
+                              : "text-[var(--muted)] hover:text-[var(--ink)]"
+                          )}
+                          aria-label="List view"
+                          title="List view"
+                        >
+                          <AlignLeft className="size-3.5" />
+                        </button>
                       </div>
                       <button
                         type="button"
@@ -1075,35 +1290,98 @@ export default function PresentationPage({
                       </button>
                     </div>
                     <div className="px-3 pt-2.5 pb-2 shrink-0">
-                      <button type="button" className="w-full inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[var(--accent)]/20 bg-[var(--surface)] text-xs font-semibold text-[var(--accent)] shadow-sm transition hover:bg-[var(--accent-soft)] cursor-pointer">
-                        <Plus className="size-3.5" /> New <ChevronDown className="ml-auto mr-2 size-3.5" />
+                      <button
+                        type="button"
+                        onClick={handleAddSlide}
+                        className="w-full inline-flex h-8 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] pl-4 pr-3 text-xs font-medium text-[var(--ink)] shadow-xs transition hover:bg-[var(--light-gray)] cursor-pointer"
+                      >
+                        <Plus className="size-3.5 shrink-0" />
+                        <span>New</span>
+                        <ChevronDown className="ml-auto size-3.5 text-[var(--muted)]" />
                       </button>
                     </div>
-                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-0.5 scrollbar-thin [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-track]:bg-transparent">
-                      {Array.from({ length: totalSlides }, (_, index) => index + 1).map((slideNumber) => (
-                        <button
-                          key={slideNumber}
-                          ref={(el) => {
-                            thumbnailRefs.current[slideNumber] = el;
-                          }}
-                          type="button"
-                          onClick={() => setCurrentSlide(slideNumber)}
-                          className={cn(
-                            "group relative block aspect-video w-full overflow-visible rounded-lg border bg-[var(--surface)] text-left shadow-sm transition cursor-pointer",
-                            currentSlide === slideNumber
-                              ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/35 shadow-sm"
-                              : "border-[var(--border)] hover:border-[var(--muted)]/55"
-                          )}
-                          aria-label={`Go to slide ${slideNumber}`}
-                          aria-current={currentSlide === slideNumber ? "true" : undefined}
-                        >
-                          <div className="size-full overflow-hidden rounded-[7px]">
-                            <SlidePreview number={slideNumber} image={presentation?.image} title={SLIDE_TITLES[(slideNumber - 1) % SLIDE_TITLES.length]} compact />
-                          </div>
-                          <span className={cn("absolute -bottom-1.5 -left-1.5 inline-flex size-6 items-center justify-center rounded-lg border bg-[var(--surface)] font-mono text-[10px] font-semibold shadow-sm", currentSlide === slideNumber ? "border-[var(--accent)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--muted)]")}>{slideNumber}</span>
-                        </button>
-                      ))}
-                    </div>
+                    {sidebarViewMode === "grid" ? (
+                      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-0.5 scrollbar-thin [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-track]:bg-transparent">
+                        {slides.map((slide, index) => {
+                          const isCurrent = currentSlide === slide.id;
+                          return (
+                            <button
+                              key={slide.id}
+                              ref={(el) => {
+                                thumbnailRefs.current[slide.id] = el;
+                              }}
+                              type="button"
+                              onClick={() => setCurrentSlide(slide.id)}
+                              className={cn(
+                                "group relative block aspect-video w-full overflow-visible rounded-lg border bg-[var(--surface)] text-left shadow-xs transition cursor-pointer",
+                                isCurrent
+                                  ? "border-[var(--ink)] ring-2 ring-[var(--ink)]/25 shadow-xs"
+                                  : "border-[var(--border)] hover:border-[var(--muted)]/55"
+                              )}
+                              aria-label={`Go to slide ${index + 1}`}
+                              aria-current={isCurrent ? "true" : undefined}
+                            >
+                              <div className="size-full overflow-hidden rounded-[7px]">
+                                <SlidePreview
+                                  number={index + 1}
+                                  image={presentation?.image}
+                                  title={slide.title}
+                                  compact
+                                />
+                              </div>
+                              <span
+                                className={cn(
+                                  "absolute -bottom-1.5 -left-1.5 inline-flex size-6 items-center justify-center rounded-lg border bg-[var(--surface)] font-mono text-[10px] font-semibold shadow-xs",
+                                  isCurrent
+                                    ? "border-[var(--ink)] text-[var(--ink)] font-bold"
+                                    : "border-[var(--border)] text-[var(--muted)]"
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3 pt-0.5 scrollbar-thin [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-track]:bg-transparent">
+                        {slides.map((slide, index) => {
+                          const isCurrent = currentSlide === slide.id;
+                          return (
+                            <button
+                              key={slide.id}
+                              ref={(el) => {
+                                thumbnailRefs.current[slide.id] = el;
+                              }}
+                              type="button"
+                              onClick={() => setCurrentSlide(slide.id)}
+                              className={cn(
+                                "group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition cursor-pointer border",
+                                isCurrent
+                                  ? "border-[var(--ink)] bg-[var(--surface)] text-[var(--ink)] font-medium shadow-xs"
+                                  : "border-transparent text-[var(--muted)] hover:bg-[var(--light-gray)] hover:text-[var(--ink)]"
+                              )}
+                              aria-label={`Go to slide ${index + 1}: ${slide.title}`}
+                              aria-current={isCurrent ? "true" : undefined}
+                            >
+                              <span
+                                className={cn(
+                                  "inline-flex size-5 shrink-0 items-center justify-center rounded font-mono text-[10px] transition-colors",
+                                  isCurrent
+                                    ? "bg-[var(--ink)] text-[var(--surface)] font-bold"
+                                    : "bg-[var(--light-gray)] text-[var(--muted)] group-hover:text-[var(--ink)]"
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                              <span className="truncate text-xs font-['Figtree'] flex-1">
+                                {slide.title}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </aside>
                 ) : (
                   <button
@@ -1122,23 +1400,29 @@ export default function PresentationPage({
                   ref={canvasContainerRef}
                   className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--surface)] p-4 sm:p-6 lg:p-8 select-none"
                 >
-                  <div className="relative flex flex-col items-center w-full max-w-[960px] my-auto gap-4">
+                  <div className="relative flex flex-col items-center w-full max-w-[90%] my-auto gap-4">
                     {/* Slide Toolbar - Outside Top */}
-                    <div className="z-20 flex items-center gap-1 rounded-full border border-white/10 bg-[#171719]/94 p-1.5 text-white shadow-[0_18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl">
+                    <div className="z-20 flex items-center gap-1 rounded-full border border-[var(--border)] dark:border-white/10 bg-white/95 dark:bg-[#171719]/94 p-1.5 text-[var(--ink)] dark:text-white shadow-[0_10px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl transition-colors">
                       {TOOLBAR_ITEMS.map(({ id: itemId, label, icon: Icon }, index) => {
                         const isQuoteAction = index === 1;
-                        const isSelected = selectedSlides.includes(currentSlide);
+                        const isSelected = selectedSlides.includes(currentSlideNumber);
                         return (
                           <React.Fragment key={itemId}>
-                            {index === 2 && <div className="mx-0.5 h-6 w-px bg-white/12" />}
+                            {index === 2 && <div className="mx-0.5 h-6 w-px bg-[var(--border)] dark:bg-white/12" />}
                             <button
                               type="button"
-                              onClick={() => isQuoteAction && toggleSlideInChat(currentSlide)}
+                              onClick={() => {
+                                if (itemId === "add") {
+                                  handleAddSlide();
+                                } else if (isQuoteAction) {
+                                  toggleSlideInChat(currentSlideNumber);
+                                }
+                              }}
                               className={cn(
-                                "group/toolbar relative inline-flex size-8 items-center justify-center rounded-full text-white/88 transition-colors hover:bg-white/12 hover:text-white cursor-pointer",
-                                isQuoteAction && isSelected && "text-emerald-300"
+                                "group/toolbar relative inline-flex size-8 items-center justify-center rounded-full text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--light-gray)] dark:text-white/80 dark:hover:text-white dark:hover:bg-white/12 transition-colors cursor-pointer",
+                                isQuoteAction && isSelected && "text-emerald-600 dark:text-emerald-300"
                               )}
-                              aria-label={isQuoteAction && isSelected ? `Remove slide ${currentSlide} from chat` : label}
+                              aria-label={isQuoteAction && isSelected ? `Remove slide ${currentSlideNumber} from chat` : label}
                               title={isQuoteAction && isSelected ? "Remove from chat" : label}
                             >
                               {isQuoteAction && isSelected ? (
@@ -1153,12 +1437,27 @@ export default function PresentationPage({
                           </React.Fragment>
                         );
                       })}
+                      <div className="mx-0.5 h-6 w-px bg-[var(--border)] dark:bg-white/12" />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSlide(currentSlide)}
+                        disabled={slides.length <= 1}
+                        className="group/toolbar relative inline-flex size-8 items-center justify-center rounded-full text-[var(--muted)] hover:text-red-600 hover:bg-red-500/10 dark:text-white/80 dark:hover:text-red-400 dark:hover:bg-red-500/20 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Delete slide"
+                        title="Delete slide"
+                      >
+                        <Trash2 className="size-[17px]" strokeWidth={1.8} />
+                      </button>
                     </div>
 
                     {/* Active Slide Canvas */}
                     <div className="relative aspect-video w-full overflow-visible">
-                      <div className="size-full overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-[0_20px_60px_rgba(20,21,26,0.12),0_4px_16px_rgba(20,21,26,0.06)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
-                        <SlidePreview number={currentSlide} image={presentation?.image} title={SLIDE_TITLES[(currentSlide - 1) % SLIDE_TITLES.length]} />
+                      <div className="size-full overflow-hidden rounded-2xl border border-[var(--border)] bg-white ">
+                        <SlidePreview
+                          number={currentSlideNumber}
+                          image={presentation?.image}
+                          title={currentSlideItem?.title || SLIDE_TITLES[currentSlideIndex % SLIDE_TITLES.length]}
+                        />
                       </div>
                     </div>
                   </div>
@@ -1171,29 +1470,33 @@ export default function PresentationPage({
                     <h2 className="font-['Figtree'] text-lg font-semibold text-[var(--ink)]">Presentation Outline</h2>
                     <p className="text-xs text-[var(--muted)]">Slide structure, section headers, and content hierarchy for {title}.</p>
                   </div>
-                  {SAMPLE_OUTLINE.map((item) => (
-                    <button
-                      type="button"
-                      key={item.slideNumber}
-                      onClick={() => {
-                        setCurrentSlide(item.slideNumber);
-                        setActiveTab("presentation");
-                      }}
-                      className={cn(
-                        "group flex w-full cursor-pointer items-start gap-4 rounded-xl border p-4 text-left transition-all",
-                        currentSlide === item.slideNumber
-                          ? "border-[var(--accent)] bg-[var(--surface)] shadow-sm"
-                          : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--light-gray)]"
-                      )}
-                    >
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--light-gray)] font-mono text-xs font-semibold text-[var(--ink)]">{item.slideNumber}</div>
-                      <div className="min-w-0 flex-1">
-                        <span className="rounded-md bg-[var(--light-gray)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">{item.type}</span>
-                        <h3 className="mt-1.5 font-['Figtree'] text-sm font-semibold text-[var(--ink)] transition-colors group-hover:text-[var(--accent)]">{item.title}</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.summary}</p>
-                      </div>
-                    </button>
-                  ))}
+                  {SAMPLE_OUTLINE.map((item) => {
+                    const isSelected = currentSlideNumber === item.slideNumber;
+                    return (
+                      <button
+                        type="button"
+                        key={item.slideNumber}
+                        onClick={() => {
+                          const targetSlide = slides[item.slideNumber - 1] || slides[0];
+                          if (targetSlide) setCurrentSlide(targetSlide.id);
+                          setActiveTab("presentation");
+                        }}
+                        className={cn(
+                          "group flex w-full cursor-pointer items-start gap-4 rounded-xl border p-4 text-left transition-all",
+                          isSelected
+                            ? "border-[var(--accent)] bg-[var(--surface)] shadow-sm"
+                            : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--light-gray)]"
+                        )}
+                      >
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--light-gray)] font-mono text-xs font-semibold text-[var(--ink)]">{item.slideNumber}</div>
+                        <div className="min-w-0 flex-1">
+                          <span className="rounded-md bg-[var(--light-gray)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">{item.type}</span>
+                          <h3 className="mt-1.5 font-['Figtree'] text-sm font-semibold text-[var(--ink)] transition-colors group-hover:text-[var(--accent)]">{item.title}</h3>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.summary}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
