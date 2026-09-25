@@ -27,6 +27,7 @@ export interface ChatComposerProps {
   isLoading?: boolean;
   className?: string;
   maxFiles?: number;
+  maxHeight?: number;
 }
 
 const DEFAULT_MODELS: ChatComposerModel[] = [
@@ -53,6 +54,7 @@ export function ChatComposer({
   isLoading = false,
   className,
   maxFiles = 5,
+  maxHeight = 340,
 }: ChatComposerProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [internalFiles, setInternalFiles] = useState<File[]>([]);
@@ -81,9 +83,9 @@ export function ChatComposer({
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = "auto";
-    const newHeight = Math.min(Math.max(textarea.scrollHeight, 44), 220);
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, 44), maxHeight);
     textarea.style.height = `${newHeight}px`;
-  }, [text]);
+  }, [text, maxHeight]);
 
   // Handle outside click for dropdown
   useEffect(() => {
@@ -235,7 +237,7 @@ export function ChatComposer({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full resize-none bg-transparent px-2 pt-1 text-sm leading-relaxed text-[var(--ink)] placeholder:text-[var(--muted)]/80 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="compact-scrollbar w-full resize-none overflow-y-auto bg-transparent px-2 pt-1 text-sm leading-relaxed text-[var(--ink)] placeholder:text-[var(--muted)]/80 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 scrollbar-thin [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border)] hover:[&::-webkit-scrollbar-thumb]:bg-[var(--muted)]/50 [&::-webkit-scrollbar-button]:hidden"
       />
 
       {/* Bottom Action Toolbar */}

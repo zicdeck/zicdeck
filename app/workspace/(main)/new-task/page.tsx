@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Clock2,
@@ -227,9 +228,20 @@ const ACTION_PILLS = [
 ];
 
 export default function NewTaskPage() {
+  const router = useRouter();
   const { openPricingModal } = useWorkspacePricingModal();
   const { theme } = useWorkspaceTheme();
   const [selectedCategory, setSelectedCategory] = useState("All Showcases");
+
+  const handlePromptSubmit = (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    const fakeId = `deck-${Date.now().toString(36)}`;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(`prompt_${fakeId}`, trimmed);
+    }
+    router.push(`/workspace/${fakeId}?prompt=${encodeURIComponent(trimmed)}`);
+  };
 
   const filteredShowcases = SHOWCASE_ITEMS.filter((item) =>
     selectedCategory === "All Showcases" ? true : item.category === selectedCategory
@@ -329,6 +341,7 @@ export default function NewTaskPage() {
             {/* ChatComposer Box */}
             <ChatComposer
               placeholder="Describe your topic or idea, or upload your files (doc, pdf, pptx, txt)…"
+              onSubmit={(message) => handlePromptSubmit(message)}
               className="w-full rounded-[24px] border-[0.5px] border-[var(--border)] bg-white dark:bg-[var(--surface)] p-4 text-start shadow-[0_-6px_12px_rgba(0,0,0,0.03),0_14px_28px_rgba(0,0,0,0.03)] dark:shadow-none backdrop-blur-[20px] md:rounded-[32px] md:p-5"
             />
 
@@ -338,6 +351,7 @@ export default function NewTaskPage() {
                 <div key={pill.id} className="group relative pt-1 -mt-1">
                   <button
                     type="button"
+                    onClick={() => handlePromptSubmit(`Create a ${pill.label.toLowerCase()} deck with professional hierarchy, clear takeaways, and modern charts`)}
                     className="relative flex h-10 min-w-16 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] bg-white dark:bg-[var(--surface)] px-3.5 py-1.5 text-xs font-normal font-sans text-[var(--ink)] shadow-none transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-white/[0.04] group-hover:-translate-y-0.5"
                   >
                     {pill.badge && (
@@ -423,6 +437,7 @@ export default function NewTaskPage() {
                         {/* Hover Overlay Button */}
                         <button
                           type="button"
+                          onClick={() => handlePromptSubmit(`Create an executive presentation based on ${item.title}`)}
                           className="absolute bottom-3 left-1/2 z-20 hidden -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-full border border-white/30 bg-black/75 px-3 py-1 text-xs font-medium text-white opacity-0 backdrop-blur-md transition-all hover:bg-black/90 group-hover:opacity-100 sm:inline-flex"
                         >
                           <Sparkles className="size-3 text-white" />
