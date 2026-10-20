@@ -47,45 +47,29 @@ import {
   X,
 } from "lucide-react";
 import { Reorder, useDragControls } from "motion/react";
-import { INITIAL_OUTPUTS } from "@/lib/library-data";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
+import type { OptimisticLocalStore } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { MessagePart, StepPart } from "@/convex/lib/validators";
 import { useWorkspaceTheme } from "@/components/workspace/WorkspaceThemeContext";
 import { cn } from "@/lib/utils";
 
-interface ChatStep {
-  icon?: "folder" | "globe" | "book" | "template" | "compass" | "check" | "sparkles";
-  label: string;
-}
+type WorkspaceData = NonNullable<FunctionReturnType<typeof api.presentations.get>>;
+type OutlineSlide = Doc<"outlineSlides">;
+type ChatMessage = Doc<"messages">;
+type PresentationSlide = Doc<"presentationSlides">;
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
-  files?: string[];
-  slides?: number[];
-  steps?: ChatStep[];
-}
-
-function getStepIcon(iconName?: string) {
-  switch (iconName) {
-    case "folder":
-      return Folder;
-    case "globe":
-      return Globe2;
-    case "book":
-      return BookOpen;
-    case "template":
-      return LayoutTemplate;
-    case "compass":
-      return Compass;
-    case "check":
-      return Check;
-    case "sparkles":
-      return Sparkles;
-    default:
-      return Sparkles;
-  }
-}
+const STEP_ICONS: Record<StepPart["icon"], typeof Sparkles> = {
+  folder: Folder,
+  globe: Globe2,
+  book: BookOpen,
+  template: LayoutTemplate,
+  compass: Compass,
+  check: Check,
+  sparkles: Sparkles,
+};
 
 function renderFormattedText(text: string) {
   if (!text) return null;
@@ -114,99 +98,82 @@ const MODELS: ChatModel[] = [
   { id: "deepseek-v3", name: "DeepSeek V3" },
 ];
 
-export interface OutlineAttachment {
-  type: string;
-  title: string;
-}
+const SAVE_DEBOUNCE_MS = 400;
 
-export interface OutlineItem {
-  id: string;
-  slideNumber: number;
-  title: string;
-  bullets?: string[];
-  attachment?: OutlineAttachment;
-}
-
-const DEFAULT_OUTLINE: OutlineItem[] = [
-  {
-    id: "slide-1",
-    slideNumber: 1,
-    title: "Q3 2026 Business Performance & Strategic Priorities",
-  },
-  {
-    id: "slide-2",
-    slideNumber: 2,
-    title: "Growth accelerated, with investment and adoption now the Q4 test.",
-    bullets: [
-      "Revenue rose 18% versus Q2; 127 new business customers and 23% MAU growth show demand.",
-      "Retention reached 94%; onboarding and support improved.",
-      "Costs rose 8% as hiring and infrastructure expanded; Q4 focus is adoption, enterprise conversion, and unit economics.",
-    ],
-  },
-  {
-    id: "slide-3",
-    slideNumber: 3,
-    title: "Revenue and usage grew faster than operating costs.",
-    bullets: [
-      "Revenue +18% quarter over quarter; monthly active users +23%.",
-      "Operating costs +8%, driven by expanded hiring and infrastructure investments.",
-      "Show an indexed Q2=100 comparison, not invented dollar actuals: revenue 118, MAU 123, costs 108.",
-    ],
-    attachment: {
-      type: "Chart",
-      title: "Q3 growth versus Q...",
-    },
-  },
-  {
-    id: "slide-4",
-    slideNumber: 4,
-    title: "Customer momentum is strong, but retention has room to improve.",
-    bullets: [
-      "127 new business customers acquired in Q3.",
-      "94% customer retention.",
-      "Present as two prominent KPI cards with a small note that the Q4 retention goal is 95%.",
-    ],
-  },
-  {
-    id: "slide-5",
-    slideNumber: 5,
-    title: "Product and execution wins widened the growth platform.",
-    bullets: [
-      "Launched the AI-powered workflow assistant and entered three new European markets.",
-      "Average customer onboarding fell from 14 to 9 days, a five-day improvement.",
-      "Signed several strategic enterprise customers; customer support response times improved 31%.",
-    ],
-  },
-  {
-    id: "slide-6",
-    slideNumber: 6,
-    title: "Five risks require focused Q4 responses, not a change of direction.",
-    bullets: [
-      "Competitive intensity in AI automation: differentiate with workflow outcomes and adoption.",
-      "AI usage raises infrastructure costs: optimize cost per customer.",
-      "Enterprise sales cycles lengthen: improve qualification and deal progression.",
-      "Experienced AI engineering talent is scarce: prioritize critical hiring and capacity.",
-      "Existing-customer adoption needs work: strengthen enablement and in-product activation.",
-    ],
-  },
-];
-
+/**
+ * Text field that keeps a local draft while focused and saves it through
+ * `onCommit` after a short pause, on blur, and before Enter/Backspace actions,
+ * so structural edits (new or removed points) always see the latest text.
+ */
 function EditableText({
   value,
-  onChange,
+  onCommit,
   placeholder = "Type text...",
   className,
   multiline = false,
   onKeyDown,
 }: {
   value: string;
-  onChange: (val: string) => void;
+  onCommit: (val: string) => void;
   placeholder?: string;
   className?: string;
   multiline?: boolean;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => void;
+  onKeyDown?: (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    currentValue: string
+  ) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState(value);
+  const [syncedValue, setSyncedValue] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<string | null>(null);
+  const onCommitRef = useRef(onCommit);
+
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  });
+
+  // Follow saved changes from the database unless the user is typing here.
+  if (!isFocused && value !== syncedValue) {
+    setSyncedValue(value);
+    setDraft(value);
+  }
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (pendingRef.current !== null) {
+      const next = pendingRef.current;
+      pendingRef.current = null;
+      onCommitRef.current(next);
+    }
+  }, []);
+
+  useEffect(() => flush, [flush]);
+
+  const handleChange = (next: string) => {
+    setDraft(next);
+    pendingRef.current = next;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    if (e.key === "Enter" || (e.key === "Backspace" && draft === "")) flush();
+    onKeyDown?.(e, draft);
+  };
+
+  const focusHandlers = {
+    onFocus: () => setIsFocused(true),
+    onBlur: () => {
+      flush();
+      setIsFocused(false);
+    },
+  };
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -219,15 +186,32 @@ function EditableText({
     if (multiline) {
       adjustHeight();
     }
-  }, [value, multiline, adjustHeight]);
+  }, [draft, multiline, adjustHeight]);
+
+  // The height depends on the width the text wraps at. Outline cards mount while
+  // the canvas is still hidden or animating open from zero width, so re-measure
+  // whenever the width changes instead of only when the text does.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!multiline || !el || typeof ResizeObserver === "undefined") return;
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      adjustHeight();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [multiline, adjustHeight]);
 
   if (!multiline) {
     return (
       <input
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
+        value={draft}
+        onChange={(e) => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        {...focusHandlers}
         placeholder={placeholder}
         className={cn(
           "w-full bg-transparent border-0 outline-none p-0 text-inherit font-inherit placeholder:text-[var(--muted)]/40 focus:outline-none focus:ring-0",
@@ -241,12 +225,13 @@ function EditableText({
     <textarea
       ref={textareaRef}
       rows={1}
-      value={value}
+      value={draft}
       onChange={(e) => {
-        onChange(e.target.value);
+        handleChange(e.target.value);
         adjustHeight();
       }}
-      onKeyDown={onKeyDown}
+      onKeyDown={handleKeyDown}
+      {...focusHandlers}
       placeholder={placeholder}
       className={cn(
         "w-full bg-transparent border-0 outline-none p-0 text-inherit font-inherit placeholder:text-[var(--muted)]/40 focus:outline-none focus:ring-0 resize-none overflow-hidden block transition-colors leading-normal",
@@ -271,8 +256,9 @@ function OutlineCardItem({
   onUpdateAttachmentType,
   onUpdateAttachmentTitle,
   onDeleteSlide,
+  onDragEnd,
 }: {
-  item: OutlineItem;
+  item: OutlineSlide;
   index: number;
   total: number;
   hasPresentation: boolean;
@@ -286,16 +272,18 @@ function OutlineCardItem({
   onUpdateAttachmentType: (val: string) => void;
   onUpdateAttachmentTitle: (val: string) => void;
   onDeleteSlide: () => void;
+  onDragEnd: () => void;
 }) {
   const dragControls = useDragControls();
 
   return (
     <Reorder.Item
       as="div"
-      value={item}
-      id={item.id}
+      value={item._id}
+      id={item._id}
       dragListener={false}
       dragControls={dragControls}
+      onDragEnd={onDragEnd}
       className={cn(
         "group relative flex items-stretch rounded-2xl bg-white dark:bg-[#1c1c20] shadow-[0_2px_12px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.03)] dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] transition-all duration-200 overflow-hidden",
         hasPresentation && currentSlideNumber === index + 1 && "ring-2 ring-[var(--ink)]/20 dark:ring-white/20 shadow-md",
@@ -327,7 +315,7 @@ function OutlineCardItem({
           <div className="flex-1 min-w-0">
             <EditableText
               value={item.title}
-              onChange={onUpdateTitle}
+              onCommit={onUpdateTitle}
               multiline
               placeholder="Slide title..."
               className="font-['Figtree'] text-[15px] sm:text-base font-bold text-[var(--ink)] leading-snug tracking-tight"
@@ -371,15 +359,15 @@ function OutlineCardItem({
                 <div className="flex-1 min-w-0">
                   <EditableText
                     value={bullet}
-                    onChange={(val) => onUpdateBullet(bIndex, val)}
+                    onCommit={(val) => onUpdateBullet(bIndex, val)}
                     multiline
                     placeholder="Bullet point..."
                     className="text-[13px] sm:text-[13.5px] text-[#374151] dark:text-[#d1d5db] leading-relaxed"
-                    onKeyDown={(e) => {
+                    onKeyDown={(e, currentValue) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         onAddBullet(bIndex);
-                      } else if (e.key === "Backspace" && bullet === "" && item.bullets!.length > 1) {
+                      } else if (e.key === "Backspace" && currentValue === "" && item.bullets.length > 1) {
                         e.preventDefault();
                         onRemoveBullet(bIndex);
                       }
@@ -409,13 +397,13 @@ function OutlineCardItem({
             <div className="flex flex-col min-w-0 pr-1">
               <EditableText
                 value={item.attachment.type}
-                onChange={onUpdateAttachmentType}
+                onCommit={onUpdateAttachmentType}
                 placeholder="Type"
                 className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-tight"
               />
               <EditableText
                 value={item.attachment.title}
-                onChange={onUpdateAttachmentTitle}
+                onCommit={onUpdateAttachmentTitle}
                 placeholder="Attachment description"
                 className="text-xs font-medium text-amber-950/85 dark:text-amber-100/90 leading-tight mt-0.5"
               />
@@ -438,13 +426,6 @@ function OutlineCardItem({
     </Reorder.Item>
   );
 }
-
-const SUGGESTED_PROMPTS = [
-  "“Update slide with Q4 actuals”",
-  "“Make title fit on one line”",
-  "“Rebalance into 3 equal columns”",
-  "“Tighten executive summary”",
-];
 
 const SLIDE_TITLES = [
   "Executive overview",
@@ -557,165 +538,586 @@ function SlidePreview({
   );
 }
 
+function formatTimestamp(creationTime: number) {
+  return new Date(creationTime).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getMessageText(message: ChatMessage) {
+  return message.parts
+    .filter((part): part is Extract<MessagePart, { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("\n\n");
+}
+
+function StepConnector() {
+  return <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />;
+}
+
+function MessageStep({
+  step,
+  animate,
+  isExpanded,
+  onToggle,
+}: {
+  step: StepPart;
+  animate: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const isRunning = step.status === "running";
+  const hasSources = !!step.sources && step.sources.length > 0;
+  const hasTemplate = !isRunning && !!step.template;
+  const isExpandable = hasSources || hasTemplate;
+
+  const header = (
+    <>
+      <div className="flex size-3.5 items-center justify-center shrink-0">
+        {isRunning ? (
+          <div className="size-3.5 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
+        ) : (
+          React.createElement(STEP_ICONS[step.icon] ?? Sparkles, {
+            className: cn("size-3.5", step.tone === "success" ? "text-emerald-500" : "text-[var(--muted)]"),
+          })
+        )}
+      </div>
+      <span className={isRunning ? "text-[var(--accent)] font-medium" : "text-[var(--muted)] font-medium"}>
+        {step.label}
+      </span>
+    </>
+  );
+
+  if (!isExpandable) {
+    return <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">{header}</div>;
+  }
+
+  return (
+    <div className="flex flex-col text-start">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer text-left"
+      >
+        {header}
+        <ChevronDown
+          className={cn("size-3 text-[var(--muted)] transition-transform ml-0.5", isExpanded ? "rotate-180" : "")}
+        />
+      </button>
+
+      {isExpanded && hasSources && (
+        <div className="space-y-1.5 pt-2 pl-5.5">
+          {step.sources!.map((source) => (
+            <div
+              key={`${source.domain}-${source.title}`}
+              className={cn(
+                "flex items-center justify-between rounded-xl bg-[var(--paper)] px-3 py-2 shadow-2xs",
+                animate && "animate-in fade-in duration-200"
+              )}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="truncate text-xs font-medium text-[var(--ink)]">{source.title}</span>
+              </div>
+              <span className="text-[10px] text-[var(--muted)] shrink-0 pl-2">{source.domain}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isExpanded && hasTemplate && (
+        <div className="pt-2 pl-5.5">
+          <div className="flex items-center justify-between rounded-xl bg-[var(--paper)] px-3 py-2 border border-[var(--border)]/50 text-xs">
+            <span className="font-medium text-[var(--ink)]">{step.template}</span>
+            <span className="text-[10px] text-[var(--muted)]">Active Template</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Renders a message's text and step parts as one connected timeline. */
+function MessageParts({
+  messageId,
+  parts,
+  animate,
+  collapsedSteps,
+  onToggleStep,
+}: {
+  messageId: string;
+  parts: MessagePart[];
+  animate: boolean;
+  collapsedSteps: Set<string>;
+  onToggleStep: (stepKey: string) => void;
+}) {
+  return (
+    <>
+      {parts.map((part, index) => {
+        const stepKey = part.type === "step" ? `${messageId}:${part.key}` : "";
+        return (
+          <React.Fragment key={part.type === "step" ? part.key : `text-${index}`}>
+            {index > 0 && <StepConnector />}
+            {part.type === "text" ? (
+              <div className="py-1 text-start">
+                <div className="prose prose-sm max-w-full text-start text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
+                  <p>{renderFormattedText(part.text)}</p>
+                </div>
+              </div>
+            ) : (
+              <MessageStep
+                step={part}
+                animate={animate}
+                isExpanded={!collapsedSteps.has(stepKey)}
+                onToggle={() => onToggleStep(stepKey)}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+function PromptBubble({ message }: { message: ChatMessage }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const prompt = getMessageText(message);
+  const isLongPrompt = prompt.length > 180 || prompt.split("\n").length > 3;
+
+  return (
+    <div className="relative w-full px-5 text-start self-start">
+      <div className="w-full rounded-2xl bg-[#eef4ff] dark:bg-[#1c1c1f] p-4 sm:p-5 text-start shadow-xs border-0">
+        {message.files && message.files.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {message.files.map((file, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 rounded-md bg-black/10 dark:bg-white/10 px-2 py-0.5 text-[10px] text-inherit"
+              >
+                <FileText className="size-2.5" />
+                <span className="truncate max-w-[160px]">{file}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <div
+          className={cn(
+            "prose prose-sm max-w-none text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed font-sans whitespace-pre-wrap",
+            !isExpanded && isLongPrompt && "line-clamp-4"
+          )}
+        >
+          {prompt}
+        </div>
+        {isLongPrompt && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-2.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer block"
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CopyFooter({ text, timestamp }: { text: string; timestamp: number }) {
+  return (
+    <div className="flex h-6 items-center gap-2 pt-0.5">
+      <button
+        type="button"
+        onClick={() => navigator.clipboard?.writeText(text)}
+        className="cursor-pointer hover:text-[var(--ink)] transition-colors p-0.5"
+        title="Copy"
+      >
+        <Copy className="size-3 text-[var(--muted)]" />
+      </button>
+      <span className="text-[10px] text-[var(--muted)] font-medium">{formatTimestamp(timestamp)}</span>
+    </div>
+  );
+}
+
+function WorkspaceLoading() {
+  return (
+    <div className="flex h-screen w-full flex-1 items-center justify-center bg-[var(--surface)]">
+      <div className="size-5 rounded-full border-2 border-[var(--muted)]/25 border-t-[var(--ink)] animate-spin" />
+    </div>
+  );
+}
+
+function PresentationNotFound() {
+  return (
+    <div className="flex h-screen w-full flex-1 flex-col items-center justify-center gap-3 bg-[var(--surface)] px-6 text-center text-[var(--ink)]">
+      <p className="text-sm font-medium">This presentation doesn&apos;t exist or you don&apos;t have access to it.</p>
+      <Link
+        href="/workspace/new-task"
+        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--light-gray)] px-3.5 py-1.5 text-xs font-medium hover:bg-[var(--light-gray-hover)] transition-colors"
+      >
+        <ArrowLeft className="size-3.5" />
+        <span>Start a new presentation</span>
+      </Link>
+    </div>
+  );
+}
+
+/** Full-screen preview of a template's pages as a carousel. */
+function TemplatePreviewModal({
+  templateName,
+  images,
+  initialIndex,
+  onClose,
+}: {
+  templateName: string;
+  images: string[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const thumbnailRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const touchStartXRef = useRef<number | null>(null);
+  const lastIndex = images.length - 1;
+
+  const goTo = useCallback(
+    (next: number) => setIndex(Math.max(0, Math.min(lastIndex, next))),
+    [lastIndex]
+  );
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") goTo(index + 1);
+      else if (e.key === "ArrowLeft") goTo(index - 1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [index, goTo, onClose]);
+
+  useEffect(() => {
+    thumbnailRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [index]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${templateName} template preview`}
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative flex w-full max-w-5xl flex-col gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6 text-[var(--ink)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Template</div>
+            <div className="truncate font-['Figtree'] text-base font-semibold">{templateName}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-[var(--muted)]" aria-live="polite">
+              {index + 1} / {images.length}
+            </span>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              className="inline-flex size-8 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--light-gray)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+              aria-label="Close template preview"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Carousel */}
+        <div className="relative">
+          <div
+            className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[#f4f2ee] dark:bg-[#1a1a1d]"
+            onTouchStart={(e) => {
+              touchStartXRef.current = e.touches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              const startX = touchStartXRef.current;
+              const endX = e.changedTouches[0]?.clientX;
+              touchStartXRef.current = null;
+              if (startX === null || endX === undefined || Math.abs(endX - startX) < 40) return;
+              goTo(endX < startX ? index + 1 : index - 1);
+            }}
+          >
+            <div
+              className="flex transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{ transform: `translateX(-${index * 100}%)` }}
+            >
+              {images.map((src, idx) => (
+                <div
+                  key={src}
+                  className="aspect-video w-full shrink-0"
+                  aria-hidden={idx !== index}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`${templateName} page ${idx + 1}`}
+                    className="size-full object-contain select-none"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => goTo(index - 1)}
+            disabled={index === 0}
+            className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md transition-opacity hover:bg-black/75 disabled:opacity-0 disabled:pointer-events-none cursor-pointer"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="size-4.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => goTo(index + 1)}
+            disabled={index === lastIndex}
+            className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md transition-opacity hover:bg-black/75 disabled:opacity-0 disabled:pointer-events-none cursor-pointer"
+            aria-label="Next page"
+          >
+            <ChevronRight className="size-4.5" />
+          </button>
+        </div>
+
+        {/* Thumbnail strip */}
+        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {images.map((src, idx) => (
+            <button
+              key={src}
+              ref={(el) => {
+                thumbnailRefs.current[idx] = el;
+              }}
+              type="button"
+              onClick={() => goTo(idx)}
+              className={cn(
+                "relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg border transition-colors cursor-pointer",
+                idx === index
+                  ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/25"
+                  : "border-[var(--border)] opacity-70 hover:opacity-100"
+              )}
+              aria-label={`Show page ${idx + 1}`}
+              aria-current={idx === index ? "true" : undefined}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="size-full object-cover" draggable={false} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PresentationPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { theme, toggleTheme } = useWorkspaceTheme();
-  const presentation = INITIAL_OUTPUTS.find((item) => item.id === id);
-  const [initialPrompt, setInitialPrompt] = useState<string>("");
-  const [isNewGeneration, setIsNewGeneration] = useState(false);
-  const [generationPhase, setGenerationPhase] = useState<
-    | "complete"
-    | "brief"
-    | "setup"
-    | "searching_sources"
-    | "sources_done"
-    | "grounding"
-    | "searching_templates"
-    | "templates_done"
-    | "direction_set"
-    | "split"
-  >("complete");
-  const [sourcesCount, setSourcesCount] = useState(0);
-  const [isSourcesExpanded, setIsSourcesExpanded] = useState(true);
-  const [isTemplatesExpanded, setIsTemplatesExpanded] = useState(true);
-  const [hasPresentation, setHasPresentation] = useState(true);
-  const [isDraftingOutline, setIsDraftingOutline] = useState(false);
-  const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false);
-  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+  const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
+  const data = useQuery(api.presentations.get, isAuthenticated ? { id } : "skip");
 
-  const isLongPrompt = initialPrompt.length > 180 || initialPrompt.split("\n").length > 3;
+  if (isAuthLoading || (isAuthenticated && data === undefined)) return <WorkspaceLoading />;
+  if (!data) return <PresentationNotFound />;
+  return <PresentationWorkspace key={data.presentation._id} routeId={id} data={data} />;
+}
 
-  const hasSetup = generationPhase !== "brief";
-  const hasSources = sourcesCount > 0;
-  const hasGrounding =
-    generationPhase === "grounding" ||
-    generationPhase === "searching_templates" ||
-    generationPhase === "templates_done" ||
-    generationPhase === "direction_set" ||
-    generationPhase === "split" ||
-    generationPhase === "complete";
-  const hasTemplates =
-    generationPhase === "searching_templates" ||
-    generationPhase === "templates_done" ||
-    generationPhase === "direction_set" ||
-    generationPhase === "split" ||
-    generationPhase === "complete";
-  const hasDirection =
-    generationPhase === "direction_set" ||
-    generationPhase === "split" ||
-    generationPhase === "complete";
-  const hasPlanReady =
-    generationPhase === "split" ||
-    generationPhase === "complete";
+/** Applies `update` to the cached outline so edits show instantly before the server confirms. */
+function updateCachedOutline(
+  localStore: OptimisticLocalStore,
+  routeId: string,
+  update: (outline: OutlineSlide[]) => OutlineSlide[]
+) {
+  const current = localStore.getQuery(api.presentations.get, { id: routeId });
+  if (!current) return;
+  const outline = update(current.outline).map((slide, position) => ({ ...slide, position }));
+  localStore.setQuery(api.presentations.get, { id: routeId }, { ...current, outline });
+}
 
-  const isFullscreenChat =
-    isNewGeneration &&
-    generationPhase !== "split" &&
-    generationPhase !== "complete";
-
-  const derivedTitle = React.useMemo(() => {
-    if (presentation?.title) return presentation.title;
-    if (!initialPrompt) return DEFAULT_OUTLINE[0].title;
-    const lines = initialPrompt.split("\n").map((l) => l.trim()).filter(Boolean);
-    const firstLine = lines[0] || "";
-    const cleanFirstLine = firstLine.replace(/^[#\s*"\-“]+|[#\s*"\-”]+$/g, "");
-    if (cleanFirstLine.length > 3 && cleanFirstLine.length < 65) {
-      return cleanFirstLine;
-    }
-    const words = cleanFirstLine.split(" ").slice(0, 6).join(" ");
-    return words || DEFAULT_OUTLINE[0].title;
-  }, [presentation, initialPrompt]);
-
-  const title = derivedTitle || presentation?.title || DEFAULT_OUTLINE[0].title;
-
-  const promptContext = React.useMemo(() => {
-    const p = (initialPrompt || "").toLowerCase();
-    const isEgypt = p.includes("egypt") || p.includes("god") || p.includes("myth");
-    const isQBR =
-      p.includes("q3") ||
-      p.includes("q4") ||
-      p.includes("review") ||
-      p.includes("quarter") ||
-      p.includes("business") ||
-      p.includes("nexora") ||
-      p.includes("kpi");
-
-    if (isEgypt) {
-      return {
-        aiIntro:
-          "I’ll turn this into a clear, visual introduction to the gods of ancient Egypt — who they were, what they represented, and how they fit together. I’ll start with a strong story arc and keep the mythology approachable rather than encyclopedic.",
-        searchTopic: "ancient Egyptian go...",
-        sources: [
-          { id: "s1", icon: "🏛️", title: "Ancient Egyptian gods and goddesses", domain: "britishmuseum.org" },
-          { id: "s2", icon: "🌅", title: "Explore Deities in Ancient Egypt", domain: "metmuseum.org" },
-          { id: "s3", icon: "🪷", title: "11 Egyptian Gods and Goddesses", domain: "britannica.com" },
-          { id: "s4", icon: "📜", title: "Thoth", domain: "ancient.eu" },
-        ],
-        groundingMsg:
-          "I’m grounding the story in museum and reference material so the roles and relationships stay accurate. The core thread is already clear: Egyptian gods weren't a fixed superhero roster — they formed a living system of sun, order, death, protection, and kingship.",
-        directionPrompt: "Pick your direction in the form, and I’ll build the outline from there.",
-        directionMsg:
-          "The educational, illustrated direction is set — warm parchment, teal-and-mustard accents, and a friendly editorial feel.",
-        templateName: "Ancient World Illustrated",
-      };
-    }
-
-    if (isQBR) {
-      return {
-        aiIntro: `This is a clear, detailed brief — I'll build a clean, executive-style deck for ${title} with KPI cards, charts, and clear section rhythm. Let me pick a fitting professional template first.`,
-        searchTopic: "Q3 2026 performance benchmarks...",
-        sources: [
-          { id: "s1", icon: "", title: "Q3 2026 Executive Performance Benchmark", domain: "gartner.com" },
-          { id: "s2", icon: "", title: "SaaS Retention & Expansion Cohort Analysis", domain: "bvp.com" },
-          { id: "s3", icon: "", title: "Corporate Operational Review Best Practices", domain: "mckinsey.com" },
-          { id: "s4", icon: "", title: "Strategic Key Results & Metric Frameworks", domain: "hbr.org" },
-        ],
-        groundingMsg:
-          "I'm grounding the deck in verified quarterly actuals and operational benchmarks so the metrics and growth trajectory stay audit-ready. The core thread is clear: demonstrated strong top-line momentum while establishing disciplined infrastructure spend heading into Q4.",
-        directionPrompt: "Pick your direction in the form, and I'll build the outline from there.",
-        directionMsg:
-          "The executive, structured direction is set — clean geometry, subtle visual accents, and strong typography hierarchy.",
-        templateName: "Account Health QBR",
-      };
-    }
-
-    return {
-      aiIntro: `I'll build a structured, high-impact deck for ${title} — framing key principles, measurable takeaways, and a clear story arc for your audience.`,
-      searchTopic: `${title.slice(0, 24)}...`,
-      sources: [
-        { id: "s1", icon: "📑", title: `Comprehensive Overview: ${title}`, domain: "researchgate.net" },
-        { id: "s2", icon: "🌐", title: "Global Industry Standards & Trends", domain: "statista.com" },
-        { id: "s3", icon: "📊", title: "Key Performance Indicators & Benchmark Data", domain: "bloomberg.com" },
-        { id: "s4", icon: "🎯", title: "Strategic Execution & Leadership Frameworks", domain: "hbr.org" },
-      ],
-      groundingMsg:
-        "I'm grounding the narrative in verified reference material and industry benchmarks so the structure remains rigorous, clear, and executive-friendly. The core thread is already established around strategic impact and actionable next steps.",
-      directionPrompt: "Pick your direction in the form, and I'll build the outline from there.",
-      directionMsg:
-        "The executive, polished direction is set — clean geometry, purposeful whitespace, and strong typography hierarchy.",
-      templateName: "Account Health QBR",
-    };
-  }, [initialPrompt, title]);
-
-  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>(DEFAULT_OUTLINE);
-  const [slides, setSlides] = useState<Array<{ id: number; title: string }>>(() =>
-    DEFAULT_OUTLINE.map((item, index) => ({
-      id: index + 1,
-      title: item.title,
-    }))
+function updateCachedSlide(
+  localStore: OptimisticLocalStore,
+  routeId: string,
+  slideId: Id<"outlineSlides">,
+  update: (slide: OutlineSlide) => OutlineSlide
+) {
+  updateCachedOutline(localStore, routeId, (outline) =>
+    outline.map((slide) => (slide._id === slideId ? update(slide) : slide))
   );
-  const [activeTab, setActiveTab] = useState<"presentation" | "outline">("outline");
+}
+
+function optimisticAddSlide(routeId: string) {
+  return (store: OptimisticLocalStore, args: FunctionArgs<typeof api.outline.addSlide>) =>
+    updateCachedOutline(store, routeId, (current) => {
+      const next = [...current];
+      next.splice(Math.max(0, Math.min(args.index, next.length)), 0, {
+        _id: `optimistic-${crypto.randomUUID()}` as Id<"outlineSlides">,
+        _creationTime: Date.now(),
+        presentationId: args.presentationId,
+        position: args.index,
+        title: args.title,
+        bullets: args.bullets,
+        attachment: args.attachment,
+      });
+      return next;
+    });
+}
+
+function updateCachedSlides(
+  localStore: OptimisticLocalStore,
+  routeId: string,
+  update: (slides: PresentationSlide[]) => PresentationSlide[]
+) {
+  const current = localStore.getQuery(api.presentations.get, { id: routeId });
+  if (!current) return;
+  const slides = update(current.slides).map((slide, position) => ({ ...slide, position }));
+  localStore.setQuery(api.presentations.get, { id: routeId }, { ...current, slides });
+}
+
+function optimisticAddPresentationSlide(routeId: string) {
+  return (store: OptimisticLocalStore, args: FunctionArgs<typeof api.slides.addSlide>) =>
+    updateCachedSlides(store, routeId, (current) => {
+      const next = [...current];
+      next.splice(Math.max(0, Math.min(args.index, next.length)), 0, {
+        _id: `optimistic-${crypto.randomUUID()}` as Id<"presentationSlides">,
+        _creationTime: Date.now(),
+        presentationId: args.presentationId,
+        position: args.index,
+        title: args.title,
+        templateSlide: args.templateSlide,
+      });
+      return next;
+    });
+}
+
+function optimisticSendMessage(routeId: string) {
+  return (store: OptimisticLocalStore, args: FunctionArgs<typeof api.messages.send>) => {
+    const current = store.getQuery(api.presentations.get, { id: routeId });
+    if (!current) return;
+    const optimisticMessage: ChatMessage = {
+      _id: `optimistic-${crypto.randomUUID()}` as Id<"messages">,
+      _creationTime: Date.now(),
+      presentationId: args.presentationId,
+      role: "user",
+      kind: "chat",
+      parts: [{ type: "text", text: args.text }],
+      status: "complete",
+      files: args.files && args.files.length > 0 ? args.files : undefined,
+      slides: args.slides && args.slides.length > 0 ? args.slides : undefined,
+      model: args.model,
+    };
+    store.setQuery(api.presentations.get, { id: routeId }, {
+      ...current,
+      messages: [...current.messages, optimisticMessage],
+    });
+  };
+}
+
+type SlideContent = Pick<OutlineSlide, "title" | "bullets" | "attachment">;
+
+function PresentationWorkspace({ routeId, data }: { routeId: string; data: WorkspaceData }) {
+  const { presentation, messages, outline, slides: savedSlides } = data;
+  const presentationId = presentation._id;
+  const { theme, toggleTheme } = useWorkspaceTheme();
+  const title = presentation.title;
+  const isGenerating = presentation.status === "generating";
+  const hasPresentation = presentation.status === "presentation_ready";
+  // The chat takes the full screen only while the first pass is drafting the outline.
+  const isFullscreenChat = isGenerating;
+
+  // Entrance animations belong to the first pass. A page opened after it finished
+  // renders straight from the database with nothing replayed.
+  const [isLiveSession] = useState(isGenerating);
+  const [initialMessageIds] = useState(() => new Set(messages.map((m) => m._id)));
+  const [loadedWithPresentation] = useState(hasPresentation);
+
+  // Pulse the outline briefly when it lands, only when it lands while we watch.
+  const [observedStatus, setObservedStatus] = useState(presentation.status);
+  const [isDraftingOutline, setIsDraftingOutline] = useState(false);
+  if (observedStatus !== presentation.status) {
+    setObservedStatus(presentation.status);
+    if (observedStatus === "generating") setIsDraftingOutline(true);
+  }
+  useEffect(() => {
+    if (!isDraftingOutline) return;
+    const timer = setTimeout(() => setIsDraftingOutline(false), 1600);
+    return () => clearTimeout(timer);
+  }, [isDraftingOutline]);
+
+  const [collapsedSteps, setCollapsedSteps] = useState<Set<string>>(() => new Set());
+  const toggleStep = (stepKey: string) => {
+    setCollapsedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepKey)) next.delete(stepKey);
+      else next.add(stepKey);
+      return next;
+    });
+  };
+
+  const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false);
+  const [templatePreviewIndex, setTemplatePreviewIndex] = useState<number | null>(null);
+  const templateName = presentation.templateName ?? "Account Health QBR";
+
+  // While dragging, the outline order lives here; it is saved when the drag ends.
+  const [dragOrder, setDragOrder] = useState<Id<"outlineSlides">[] | null>(null);
+  const dragOrderRef = useRef<Id<"outlineSlides">[] | null>(null);
+  const outlineItems = React.useMemo(() => {
+    if (!dragOrder) return outline;
+    const byId = new Map(outline.map((slide) => [slide._id, slide]));
+    const ordered = dragOrder
+      .map((slideId) => byId.get(slideId))
+      .filter((slide): slide is OutlineSlide => !!slide);
+    return ordered.length === outline.length ? ordered : outline;
+  }, [outline, dragOrder]);
+
+  // Generated slides are their own records; `id` is the 1-based position used for navigation.
+  const slides = React.useMemo(
+    () =>
+      savedSlides.map((slide, index) => ({
+        id: index + 1,
+        slideId: slide._id,
+        title: slide.title,
+        templateSlide: slide.templateSlide,
+      })),
+    [savedSlides]
+  );
+
+  const [activeTab, setActiveTab] = useState<"presentation" | "outline">(
+    hasPresentation ? "presentation" : "outline"
+  );
   const [currentSlide, setCurrentSlide] = useState(1);
   const [sidebarViewMode, setSidebarViewMode] = useState<"grid" | "list">("grid");
-  const [deletedHistory, setDeletedHistory] = useState<Array<{ slide: { id: number; title: string }; index: number }>>([]);
+  const [deletedHistory, setDeletedHistory] = useState<
+    Array<{ slide: { title: string; templateSlide: number }; index: number }>
+  >([]);
   const [deleteAlert, setDeleteAlert] = useState<{ slideNumber: number; slideTitle: string } | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [selectedModel, setSelectedModel] = useState<ChatModel>(MODELS[0]);
+  const [selectedModel, setSelectedModel] = useState<ChatModel>(
+    () => MODELS.find((m) => m.id === presentation.model) ?? MODELS[0]
+  );
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [selectedSlides, setSelectedSlides] = useState<number[]>([]);
   const [openHeaderMenu, setOpenHeaderMenu] = useState<"play" | "download" | "share" | null>(null);
@@ -729,180 +1131,144 @@ export default function PresentationPage({
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const updateTitleMutation = useMutation(api.outline.updateTitle).withOptimisticUpdate(
+    (store, args) => updateCachedSlide(store, routeId, args.slideId, (s) => ({ ...s, title: args.title }))
+  );
+  const updateBulletMutation = useMutation(api.outline.updateBullet).withOptimisticUpdate(
+    (store, args) =>
+      updateCachedSlide(store, routeId, args.slideId, (s) => ({
+        ...s,
+        bullets: s.bullets.map((b, i) => (i === args.index ? args.text : b)),
+      }))
+  );
+  const insertBulletMutation = useMutation(api.outline.insertBullet).withOptimisticUpdate(
+    (store, args) =>
+      updateCachedSlide(store, routeId, args.slideId, (s) => {
+        const bullets = [...s.bullets];
+        bullets.splice(Math.max(0, Math.min(args.index, bullets.length)), 0, "");
+        return { ...s, bullets };
+      })
+  );
+  const removeBulletMutation = useMutation(api.outline.removeBullet).withOptimisticUpdate(
+    (store, args) =>
+      updateCachedSlide(store, routeId, args.slideId, (s) => ({
+        ...s,
+        bullets: s.bullets.filter((_, i) => i !== args.index),
+      }))
+  );
+  const updateAttachmentMutation = useMutation(api.outline.updateAttachment).withOptimisticUpdate(
+    (store, args) =>
+      updateCachedSlide(store, routeId, args.slideId, (s) =>
+        s.attachment ? { ...s, attachment: { ...s.attachment, [args.field]: args.value } } : s
+      )
+  );
+  const addSlideMutation = useMutation(api.outline.addSlide).withOptimisticUpdate(optimisticAddSlide(routeId));
+  const deleteSlideMutation = useMutation(api.outline.deleteSlide).withOptimisticUpdate((store, args) =>
+    updateCachedOutline(store, routeId, (current) => current.filter((s) => s._id !== args.slideId))
+  );
+  const reorderMutation = useMutation(api.outline.reorder).withOptimisticUpdate((store, args) =>
+    updateCachedOutline(store, routeId, (current) => {
+      const byId = new Map(current.map((s) => [s._id, s]));
+      const ordered = args.slideIds.map((slideId) => byId.get(slideId)).filter((s): s is OutlineSlide => !!s);
+      return ordered.length === current.length ? ordered : current;
+    })
+  );
+  const markPresentationReady = useMutation(api.presentations.markPresentationReady);
+  const addPresentationSlideMutation = useMutation(api.slides.addSlide).withOptimisticUpdate(
+    optimisticAddPresentationSlide(routeId)
+  );
+  const deletePresentationSlideMutation = useMutation(api.slides.deleteSlide).withOptimisticUpdate(
+    (store, args) =>
+      updateCachedSlides(store, routeId, (current) => current.filter((s) => s._id !== args.slideId))
+  );
+  const sendMessageMutation = useMutation(api.messages.send).withOptimisticUpdate(optimisticSendMessage(routeId));
+  const isSavedSlide = (slide: OutlineSlide | undefined): slide is OutlineSlide =>
+    !!slide && !slide._id.startsWith("optimistic-");
+
   const updateTitle = (index: number, newTitle: string) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], title: newTitle };
-      return next;
-    });
-    setSlides((prev) => {
-      if (index >= prev.length) return prev;
-      const next = [...prev];
-      next[index] = { ...next[index], title: newTitle };
-      return next;
-    });
+    const slide = outlineItems[index];
+    if (isSavedSlide(slide)) void updateTitleMutation({ slideId: slide._id, title: newTitle });
   };
 
   const updateBullet = (slideIndex: number, bulletIndex: number, newText: string) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      const bullets = [...(next[slideIndex]?.bullets || [])];
-      bullets[bulletIndex] = newText;
-      next[slideIndex] = { ...next[slideIndex], bullets };
-      return next;
-    });
+    const slide = outlineItems[slideIndex];
+    if (isSavedSlide(slide)) void updateBulletMutation({ slideId: slide._id, index: bulletIndex, text: newText });
   };
 
   const addBullet = (slideIndex: number, afterIndex?: number) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      const bullets = [...(next[slideIndex]?.bullets || [])];
-      const insertIdx = afterIndex !== undefined ? afterIndex + 1 : bullets.length;
-      bullets.splice(insertIdx, 0, "");
-      next[slideIndex] = { ...next[slideIndex], bullets };
-      return next;
-    });
+    const slide = outlineItems[slideIndex];
+    if (!isSavedSlide(slide)) return;
+    const index = afterIndex !== undefined ? afterIndex + 1 : slide.bullets.length;
+    void insertBulletMutation({ slideId: slide._id, index });
   };
 
   const removeBullet = (slideIndex: number, bulletIndex: number) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      const bullets = [...(next[slideIndex]?.bullets || [])];
-      bullets.splice(bulletIndex, 1);
-      next[slideIndex] = { ...next[slideIndex], bullets };
-      return next;
-    });
+    const slide = outlineItems[slideIndex];
+    if (isSavedSlide(slide)) void removeBulletMutation({ slideId: slide._id, index: bulletIndex });
   };
 
   const updateAttachmentType = (slideIndex: number, newType: string) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      if (next[slideIndex]?.attachment) {
-        next[slideIndex] = {
-          ...next[slideIndex],
-          attachment: { ...next[slideIndex].attachment!, type: newType },
-        };
-      }
-      return next;
-    });
+    const slide = outlineItems[slideIndex];
+    if (isSavedSlide(slide)) void updateAttachmentMutation({ slideId: slide._id, field: "type", value: newType });
   };
 
   const updateAttachmentTitle = (slideIndex: number, newTitle: string) => {
-    setOutlineItems((prev) => {
-      const next = [...prev];
-      if (next[slideIndex]?.attachment) {
-        next[slideIndex] = {
-          ...next[slideIndex],
-          attachment: { ...next[slideIndex].attachment!, title: newTitle },
-        };
-      }
-      return next;
-    });
+    const slide = outlineItems[slideIndex];
+    if (isSavedSlide(slide)) void updateAttachmentMutation({ slideId: slide._id, field: "title", value: newTitle });
   };
+
+  const insertSlide = (index: number, content: SlideContent) =>
+    addSlideMutation({
+      presentationId,
+      index,
+      title: content.title,
+      bullets: content.bullets,
+      attachment: content.attachment,
+    });
 
   const handleAddNewSlide = () => {
     const nextNum = outlineItems.length + 1;
-    const newSlideId = `slide-${Date.now()}`;
-    const newItem: OutlineItem = {
-      id: newSlideId,
-      slideNumber: nextNum,
+    void insertSlide(outlineItems.length, {
       title: `Slide ${nextNum} Overview & Key Priorities`,
       bullets: [
         "Primary objective and strategic vector for this milestone.",
         "Operational readiness and cross-functional coordination.",
       ],
-    };
-    setOutlineItems((prev) => [...prev, newItem]);
-    setSlides((prev) => [
-      ...prev,
-      { id: prev.length + 1, title: newItem.title },
-    ]);
+    });
   };
 
   const handleDeleteOutlineItem = (index: number) => {
-    if (outlineItems.length <= 1) return;
-    setOutlineItems((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.map((item, i) => ({
-        ...item,
-        slideNumber: i + 1,
-      }));
-    });
-    setSlides((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, id: i + 1 }));
-    });
+    const slide = outlineItems[index];
+    if (outlineItems.length <= 1 || !isSavedSlide(slide)) return;
+    void deleteSlideMutation({ slideId: slide._id });
   };
 
-  const handleReorder = (newOrder: OutlineItem[]) => {
-    const updated = newOrder.map((item, idx) => ({
-      ...item,
-      slideNumber: idx + 1,
-    }));
-    setOutlineItems(updated);
-    setSlides(updated.map((item, idx) => ({
-      id: idx + 1,
-      title: item.title,
-    })));
+  const handleReorder = (newOrder: Id<"outlineSlides">[]) => {
+    dragOrderRef.current = newOrder;
+    setDragOrder(newOrder);
   };
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      const promptParam = sp.get("prompt");
-      const storedPrompt = sessionStorage.getItem(`prompt_${id}`);
-      const promptText = promptParam || storedPrompt || "";
-
-      if (promptText) {
-        const t0 = setTimeout(() => {
-          setInitialPrompt(promptText);
-          setIsNewGeneration(true);
-          setHasPresentation(false);
-          setActiveTab("outline");
-          setGenerationPhase("brief");
-          setSourcesCount(0);
-          setIsDraftingOutline(true);
-        }, 0);
-
-        // Incremental sequential search progression matching Image 1
-        const t1 = setTimeout(() => setGenerationPhase("setup"), 1100);
-        const t2 = setTimeout(() => {
-          setGenerationPhase("searching_sources");
-          setSourcesCount(1);
-        }, 2200);
-        const t3 = setTimeout(() => setSourcesCount(2), 3500);
-        const t4 = setTimeout(() => setSourcesCount(3), 4800);
-        const t5 = setTimeout(() => {
-          setSourcesCount(4);
-          setGenerationPhase("sources_done");
-        }, 6200);
-        const t6 = setTimeout(() => setGenerationPhase("grounding"), 7400);
-        const t7 = setTimeout(() => setGenerationPhase("searching_templates"), 8800);
-        const t8 = setTimeout(() => setGenerationPhase("templates_done"), 11000);
-        const t9 = setTimeout(() => setGenerationPhase("direction_set"), 12200);
-        const t10 = setTimeout(() => setGenerationPhase("split"), 14000);
-        const t11 = setTimeout(() => setIsDraftingOutline(false), 15600);
-
-        return () => {
-          [t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11].forEach(clearTimeout);
-        };
-      }
+  const handleReorderEnd = () => {
+    const order = dragOrderRef.current;
+    dragOrderRef.current = null;
+    if (order && order.every((slideId) => !slideId.startsWith("optimistic-"))) {
+      void reorderMutation({ presentationId, slideIds: order });
     }
-  }, [id]);
+    setDragOrder(null);
+  };
 
   const handleGeneratePresentation = () => {
     setIsGeneratingPresentation(true);
-    setTimeout(() => {
-      const nextSlides = outlineItems.map((item, index) => ({
-        id: index + 1,
-        title: item.title,
-      }));
-      setSlides(nextSlides);
-      setCurrentSlide(1);
-      setHasPresentation(true);
-      setActiveTab("presentation");
-      setIsGeneratingPresentation(false);
-      setGenerationPhase("complete");
+    setTimeout(async () => {
+      try {
+        await markPresentationReady({ presentationId });
+        setCurrentSlide(1);
+        setActiveTab("presentation");
+      } catch (error) {
+        console.error("Failed to generate presentation", error);
+      } finally {
+        setIsGeneratingPresentation(false);
+      }
     }, 1000);
   };
 
@@ -911,33 +1277,34 @@ export default function PresentationPage({
   const currentSlideNumber = currentSlideIndex + 1;
 
   const handleAddSlide = () => {
-    const newId = Math.max(0, ...slides.map((s) => s.id)) + 1;
     const insertIndex = currentSlideIndex + 1;
-    const newSlide = {
-      id: newId,
-      title: SLIDE_TITLES[insertIndex % SLIDE_TITLES.length] || `Slide ${newId}`,
-    };
-    const nextSlides = [...slides];
-    nextSlides.splice(insertIndex, 0, newSlide);
-    setSlides(nextSlides);
-    setCurrentSlide(newId);
+    void addPresentationSlideMutation({
+      presentationId,
+      index: insertIndex,
+      title: SLIDE_TITLES[insertIndex % SLIDE_TITLES.length] || `Slide ${insertIndex + 1}`,
+      templateSlide: insertIndex + 1,
+    });
+    setCurrentSlide(insertIndex + 1);
   };
 
   const handleDeleteSlide = (slideIdToDelete?: number) => {
     const targetId = slideIdToDelete ?? currentSlide;
     const slideIndex = slides.findIndex((s) => s.id === targetId);
-    if (slideIndex === -1 || slides.length <= 1) return;
-
     const deletedSlide = slides[slideIndex];
+    if (!deletedSlide || slides.length <= 1 || deletedSlide.slideId.startsWith("optimistic-")) return;
+
     const slideNumber = slideIndex + 1;
 
-    setDeletedHistory((prev) => [...prev, { slide: deletedSlide, index: slideIndex }]);
+    setDeletedHistory((prev) => [
+      ...prev,
+      {
+        slide: { title: deletedSlide.title, templateSlide: deletedSlide.templateSlide },
+        index: slideIndex,
+      },
+    ]);
 
-    const nextSlides = slides.filter((s) => s.id !== targetId);
-    setSlides(nextSlides);
-
-    const nextActiveIndex = Math.min(slideIndex, nextSlides.length - 1);
-    setCurrentSlide(nextSlides[nextActiveIndex].id);
+    void deletePresentationSlideMutation({ slideId: deletedSlide.slideId });
+    setCurrentSlide(Math.min(slideIndex, slides.length - 2) + 1);
 
     setSelectedSlides((prev) => prev.filter((num) => num !== slideNumber));
 
@@ -959,11 +1326,14 @@ export default function PresentationPage({
     const updatedHistory = deletedHistory.slice(0, -1);
     setDeletedHistory(updatedHistory);
 
-    const nextSlides = [...slides];
-    const insertIndex = Math.min(lastEntry.index, nextSlides.length);
-    nextSlides.splice(insertIndex, 0, lastEntry.slide);
-    setSlides(nextSlides);
-    setCurrentSlide(lastEntry.slide.id);
+    const insertIndex = Math.min(lastEntry.index, slides.length);
+    void addPresentationSlideMutation({
+      presentationId,
+      index: insertIndex,
+      title: lastEntry.slide.title,
+      templateSlide: lastEntry.slide.templateSlide,
+    });
+    setCurrentSlide(insertIndex + 1);
 
     if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
     if (updatedHistory.length > 0) {
@@ -978,7 +1348,7 @@ export default function PresentationPage({
     } else {
       setDeleteAlert(null);
     }
-  }, [deletedHistory, slides]);
+  }, [deletedHistory, slides.length, addPresentationSlideMutation, presentationId]);
 
   // Keyboard shortcut Ctrl + Z / Cmd + Z for undoing slide deletion
   useEffect(() => {
@@ -1002,19 +1372,11 @@ export default function PresentationPage({
     return () => window.removeEventListener("keydown", handleUndoKeyDown);
   }, [deletedHistory, handleUndo]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "initial-ai",
-      role: "assistant",
-      content: `I've connected to **${title}** and mapped your corporate master template, typography, and visual rules. Describe what you'd like to update on your slides.`,
-      timestamp: "Just now",
-    },
-  ]);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const isUserScrolledUpRef = useRef(false);
+  const hasScrolledInitiallyRef = useRef(false);
 
   const checkScrollPosition = useCallback(() => {
     const el = chatScrollContainerRef.current;
@@ -1043,16 +1405,21 @@ export default function PresentationPage({
   const headerActionsRef = useRef<HTMLDivElement>(null);
   const playCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const messageSeqRef = useRef(0);
 
-  // Auto-scroll chat to bottom when new messages arrive (respecting user scroll position)
+  // Auto-scroll chat to bottom when messages change (respecting user scroll position).
+  // The first scroll after opening is instant so a saved chat doesn't animate in.
   useEffect(() => {
+    if (!hasScrolledInitiallyRef.current) {
+      hasScrolledInitiallyRef.current = true;
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      return;
+    }
     if (!isUserScrolledUpRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     } else {
       checkScrollPosition();
     }
-  }, [messages, generationPhase, sourcesCount, checkScrollPosition]);
+  }, [messages, checkScrollPosition]);
 
   // Wheel navigation on slide canvas: immediate slide transitions without waiting
   useEffect(() => {
@@ -1227,7 +1594,7 @@ export default function PresentationPage({
   };
 
   const copyShareLink = async () => {
-    const shareUrl = `https://zicdeck.app/presentation/share/${id}`;
+    const shareUrl = `https://zicdeck.app/presentation/share/${presentationId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       if (copyFeedbackTimerRef.current) clearTimeout(copyFeedbackTimerRef.current);
@@ -1238,59 +1605,31 @@ export default function PresentationPage({
     }
   };
 
-  const handleSendMessage = (text: string, files?: File[], slides: number[] = []) => {
-    if (!text.trim() && (!files || files.length === 0) && slides.length === 0) return;
+  const handleSendMessage = (text: string, files?: File[], slideNumbers: number[] = []) => {
+    if (!text.trim() && (!files || files.length === 0) && slideNumbers.length === 0) return;
 
-    messageSeqRef.current += 1;
-    const userMsgId = `user-msg-${messageSeqRef.current}`;
-
-    const userMsg: ChatMessage = {
-      id: userMsgId,
-      role: "user",
-      content: text,
-      timestamp: "Just now",
+    isUserScrolledUpRef.current = false;
+    void sendMessageMutation({
+      presentationId,
+      text,
       files: files?.map((f) => f.name),
-      slides,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-
-    // Simulate intelligent platform AI response
-    setTimeout(() => {
-      let aiResponseText = `I've analyzed slide ${currentSlideNumber} and applied the revisions to **${title}**. All typography hierarchy, margins, and brand guidelines remain strictly compliant.`;
-      let stepLabel = `Analyzed slide ${currentSlideNumber} structure`;
-
-      if (text.toLowerCase().includes("q4") || text.toLowerCase().includes("actual")) {
-        aiResponseText = `Updated slide ${currentSlideNumber} with Q4 actuals. Data callouts and chart alignment have been rebalanced to match your executive template.`;
-        stepLabel = `Grounded slide ${currentSlideNumber} with Q4 actuals`;
-      } else if (text.toLowerCase().includes("one line") || text.toLowerCase().includes("title")) {
-        aiResponseText = `Adjusted headline tracking and font weight on slide ${currentSlideNumber}. The title now sits cleanly on a single line without breaking visual hierarchy.`;
-        stepLabel = `Adjusted typography hierarchy on slide ${currentSlideNumber}`;
-      } else if (text.toLowerCase().includes("column") || text.toLowerCase().includes("3")) {
-        aiResponseText = `Rebuilt the slide architecture into a 3-column layout with equal gutters and aligned metrics.`;
-        stepLabel = `Reconfigured layout to 3-column architecture`;
-      }
-
-      messageSeqRef.current += 1;
-      const aiMsgId = `ai-msg-${messageSeqRef.current}`;
-
-      const aiMsg: ChatMessage = {
-        id: aiMsgId,
-        role: "assistant",
-        content: aiResponseText,
-        timestamp: "Just now",
-        steps: [
-          { icon: "book", label: stepLabel },
-          { icon: "check", label: "Applied revisions to presentation" },
-        ],
-      };
-
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 600);
+      slides: slideNumbers,
+      model: selectedModel.id,
+      currentSlideNumber,
+    });
   };
 
   return (
     <div className="relative flex h-screen w-full min-w-0 flex-1 overflow-hidden bg-[var(--surface)] text-[var(--ink)]">
+      {templatePreviewIndex !== null && (
+        <TemplatePreviewModal
+          templateName={templateName}
+          images={EXAMPLE_SLIDE_IMAGES}
+          initialIndex={templatePreviewIndex}
+          onClose={() => setTemplatePreviewIndex(null)}
+        />
+      )}
+
       {/* Alert at top middle for Undo */}
       {deleteAlert && (
         <div
@@ -1381,355 +1720,118 @@ export default function PresentationPage({
                         : "max-w-none w-full"
                     )}
                   >
-                    {isNewGeneration && initialPrompt && (
-                      <>
-                        {/* 1. User Prompt Bubble */}
-                        <div className="relative w-full px-5 text-start self-start">
-                          <div className="w-full rounded-2xl bg-[#eef4ff] dark:bg-[#1c1c1f] p-4 sm:p-5 text-start shadow-xs border-0">
-                            <div
-                              className={cn(
-                                "prose prose-sm max-w-none text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed font-sans whitespace-pre-wrap",
-                                !isPromptExpanded && isLongPrompt && "line-clamp-4"
-                              )}
-                            >
-                              {initialPrompt}
-                            </div>
-                            {isLongPrompt && (
-                              <button
-                                type="button"
-                                onClick={() => setIsPromptExpanded(!isPromptExpanded)}
-                                className="mt-2.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer block"
-                              >
-                                {isPromptExpanded ? "Show less" : "Show more"}
-                              </button>
+                    {messages.map((msg) => {
+                      // Only messages that arrive while this page is open animate in.
+                      const animate = isLiveSession || !initialMessageIds.has(msg._id);
+
+                      if (msg.kind === "prompt") {
+                        return <PromptBubble key={msg._id} message={msg} />;
+                      }
+
+                      if (msg.kind === "generation") {
+                        return (
+                          <div
+                            key={msg._id}
+                            className={cn(
+                              "relative w-full px-5 text-start group/card self-start",
+                              animate && "animate-in fade-in duration-300"
+                            )}
+                          >
+                            <MessageParts
+                              messageId={msg._id}
+                              parts={msg.parts}
+                              animate={animate}
+                              collapsedSteps={collapsedSteps}
+                              onToggleStep={toggleStep}
+                            />
+                            {msg.status === "complete" && (
+                              <div className="pt-1.5">
+                                <CopyFooter text={getMessageText(msg)} timestamp={msg._creationTime} />
+                              </div>
                             )}
                           </div>
-                        </div>
+                        );
+                      }
 
-                        {/* 2. AI Response with Connected Timeline Steps */}
-                        <div className="relative w-full px-5 text-start group/card self-start animate-in fade-in duration-300">
-                          {/* AI Intro Message (Default AI reply design: Image 3) */}
-                          <div className="py-1 text-start">
-                            <div className="prose prose-sm max-w-full text-start text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
-                              <p>{renderFormattedText(promptContext.aiIntro)}</p>
-                            </div>
-                          </div>
-
-                          {/* Connector line down to Opened setup form */}
-                          {hasSetup && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
+                      return (
+                        <div
+                          key={msg._id}
+                          className={cn(
+                            "relative w-full px-5 text-start group/card hover:z-10 self-start",
+                            animate && "animate-in fade-in duration-300"
                           )}
-
-                          {/* Step 1: Opened setup form */}
-                          {hasSetup && (
-                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
-                              <div className="flex size-3.5 items-center justify-center shrink-0">
-                                <Folder className="size-3.5 text-[var(--muted)]" />
-                              </div>
-                              <span>Opened setup form</span>
-                            </div>
-                          )}
-
-                          {/* Connector line down to Research step */}
-                          {hasSources && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                          )}
-
-                          {/* Step 2: Researched web sources */}
-                          {hasSources && (
-                            <div className="flex flex-col text-start">
-                              <button
-                                type="button"
-                                onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
-                                className="flex items-center gap-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer text-left"
-                              >
-                                <div className="flex size-3.5 items-center justify-center shrink-0">
-                                  {sourcesCount < 4 ? (
-                                    <div className="size-3.5 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
-                                  ) : (
-                                    <Globe2 className="size-3.5 text-[var(--muted)]" />
-                                  )}
-                                </div>
-                                <span className={sourcesCount < 4 ? "text-[var(--accent)] font-medium" : "text-[var(--muted)] font-medium"}>
-                                  {sourcesCount < 4
-                                    ? `Searching web sources for "${promptContext.searchTopic}"...`
-                                    : `Reviewed 4 web sources for "${promptContext.searchTopic}"`}
-                                </span>
-                                <ChevronDown className={cn("size-3 text-[var(--muted)] transition-transform ml-0.5", isSourcesExpanded ? "rotate-180" : "")} />
-                              </button>
-
-                              {isSourcesExpanded && (
-                                <div className="space-y-1.5 pt-2 pl-5.5">
-                                  {promptContext.sources.slice(0, sourcesCount).map((source) => (
-                                    <div
-                                      key={source.id}
-                                      className="flex items-center justify-between rounded-xl bg-[var(--paper)] px-3 py-2 shadow-2xs animate-in fade-in duration-200"
-                                    >
-                                      <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="truncate text-xs font-medium text-[var(--ink)]">
-                                          {source.title}
-                                        </span>
-                                      </div>
-                                      <span className="text-[10px] text-[var(--muted)] shrink-0 pl-2">
-                                        {source.domain}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Connector line down to Grounding step */}
-                          {hasGrounding && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                          )}
-
-                          {/* Step 3: Grounded context description right above the AI grounding message */}
-                          {hasGrounding && (
+                        >
+                          {msg.role === "assistant" ? (
                             <>
-                              <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
-                                <div className="flex size-3.5 items-center justify-center shrink-0">
-                                  <BookOpen className="size-3.5 text-[var(--muted)]" />
+                              <div className="flex gap-2 items-center pt-1 pb-1">
+                                <div className="size-5 rounded-md flex items-center justify-center shrink-0">
+                                  <Image
+                                    src="/logo.svg"
+                                    alt="ZicDeck"
+                                    width={16}
+                                    height={16}
+                                    className={cn(
+                                      "size-4 object-contain",
+                                      theme === "dark" ? "invert brightness-200" : ""
+                                    )}
+                                  />
                                 </div>
-                                <span>Researched &amp; grounded context in reference benchmarks</span>
-                              </div>
-
-                              <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-
-                              {/* AI Grounding Message (Image 3 design: no border, no padding box) */}
-                              <div className="py-1 text-start">
-                                <div className="prose prose-sm max-w-full text-start text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
-                                  <p>{renderFormattedText(promptContext.groundingMsg)}</p>
-                                </div>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Connector line down to Template selection */}
-                          {hasTemplates && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                          )}
-
-                          {/* Step 4: Template selection ("changed the template") */}
-                          {hasTemplates && (
-                            <div className="flex flex-col text-start">
-                              <button
-                                type="button"
-                                onClick={() => generationPhase !== "searching_templates" && setIsTemplatesExpanded(!isTemplatesExpanded)}
-                                className={cn(
-                                  "flex items-center gap-2 text-xs font-medium text-[var(--muted)] text-left",
-                                  generationPhase !== "searching_templates" && "hover:text-[var(--ink)] transition-colors cursor-pointer"
-                                )}
-                              >
-                                <div className="flex size-3.5 items-center justify-center shrink-0">
-                                  {generationPhase === "searching_templates" ? (
-                                    <div className="size-3.5 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
-                                  ) : (
-                                    <LayoutTemplate className="size-3.5 text-[var(--muted)]" />
-                                  )}
-                                </div>
-                                <span className={generationPhase === "searching_templates" ? "text-[var(--accent)] font-medium" : "text-[var(--muted)] font-medium"}>
-                                  {generationPhase === "searching_templates"
-                                    ? "Searching for relevant templates..."
-                                    : `Changed template to "${promptContext.templateName}"`}
+                                <span className="text-xs text-[var(--muted)] font-medium font-['Figtree'] leading-5 whitespace-nowrap">
+                                  ZicDeck Assistant
                                 </span>
-                                {generationPhase !== "searching_templates" && (
-                                  <ChevronDown className={cn("size-3 text-[var(--muted)] transition-transform ml-0.5", isTemplatesExpanded ? "rotate-180" : "")} />
-                                )}
-                              </button>
-
-                              {generationPhase !== "searching_templates" && isTemplatesExpanded && (
-                                <div className="pt-2 pl-5.5">
-                                  <div className="flex items-center justify-between rounded-xl bg-[var(--paper)] px-3 py-2 border border-[var(--border)]/50 text-xs">
-                                    <span className="font-medium text-[var(--ink)]">{promptContext.templateName}</span>
-                                    <span className="text-[10px] text-[var(--muted)]">Active Template</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Connector line down to Direction step */}
-                          {hasDirection && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                          )}
-
-                          {/* Step 5: Picked direction ("picked a direction") */}
-                          {hasDirection && (
-                            <>
-                              <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
-                                <div className="flex size-3.5 items-center justify-center shrink-0">
-                                  <Compass className="size-3.5 text-[var(--muted)]" />
-                                </div>
-                                <span>Picked a direction</span>
                               </div>
-
-                              <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-
-                              {/* AI Direction Message (Image 3 design: no border, no padding box) */}
-                              <div className="py-1 text-start">
-                                <div className="prose prose-sm max-w-full text-start text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
-                                  <p>{renderFormattedText(promptContext.directionMsg)}</p>
-                                </div>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Connector line down to Plan view ready */}
-                          {hasPlanReady && (
-                            <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                          )}
-
-                          {/* Step 6: Plan view ready */}
-                          {hasPlanReady && (
-                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
-                              <div className="flex size-3.5 items-center justify-center shrink-0">
-                                <Check className="size-3.5 text-emerald-500" />
-                              </div>
-                              <span>Plan view ready</span>
-                            </div>
-                          )}
-
-                          {/* Footer action buttons when completed */}
-                          {hasPlanReady && (
-                            <div className="flex h-6 items-center gap-2 pt-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const textToCopy = [promptContext.aiIntro, promptContext.groundingMsg, promptContext.directionMsg].filter(Boolean).join("\n\n");
-                                  navigator.clipboard?.writeText(textToCopy);
-                                }}
-                                className="cursor-pointer hover:text-[var(--ink)] transition-colors p-0.5"
-                                title="Copy"
-                              >
-                                <Copy className="size-3 text-[var(--muted)]" />
-                              </button>
-                              <span className="text-[10px] text-[var(--muted)] font-medium">
-                                Just now
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-
-                    {(!isNewGeneration ? messages : messages.filter((m) => m.id !== "initial-ai")).map((msg) => (
-                      <div
-                        key={msg.id}
-                        className="relative w-full px-5 text-start group/card hover:z-10 self-start"
-                      >
-                        {msg.role === "assistant" ? (
-                          <>
-                            <div className="flex gap-2 items-center pt-1 pb-1">
-                              <div className="size-5 rounded-md flex items-center justify-center shrink-0">
-                                <Image
-                                  src="/logo.svg"
-                                  alt="ZicDeck"
-                                  width={16}
-                                  height={16}
-                                  className={cn(
-                                    "size-4 object-contain",
-                                    theme === "dark" ? "invert brightness-200" : ""
-                                  )}
+                              <div className="py-1 flex flex-col text-start">
+                                <MessageParts
+                                  messageId={msg._id}
+                                  parts={msg.parts}
+                                  animate={animate}
+                                  collapsedSteps={collapsedSteps}
+                                  onToggleStep={toggleStep}
                                 />
                               </div>
-                              <span className="text-xs text-[var(--muted)] font-medium font-['Figtree'] leading-5 whitespace-nowrap">
-                                ZicDeck Assistant
-                              </span>
-                            </div>
-                            <div className="py-1 flex flex-col text-start">
-                              {msg.steps && msg.steps.length > 0 && (
-                                <div className="flex flex-col text-start mb-1">
-                                  {msg.steps.map((step, sIdx) => {
-                                    const IconComp = getStepIcon(step.icon);
-                                    return (
-                                      <React.Fragment key={sIdx}>
-                                        {sIdx > 0 && (
-                                          <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                                        )}
-                                        <div className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
-                                          <div className="flex size-3.5 items-center justify-center shrink-0">
-                                            <IconComp className="size-3.5 text-[var(--muted)]" />
-                                          </div>
-                                          <span>{step.label}</span>
-                                        </div>
-                                      </React.Fragment>
-                                    );
-                                  })}
-                                  <div className="w-px h-3.5 bg-[var(--border)] ml-[6.5px] my-1 shrink-0" />
-                                </div>
-                              )}
-                              <div className="prose prose-sm max-w-full text-start text-xs sm:text-[13px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">
-                                <p>{renderFormattedText(msg.content)}</p>
+                              <CopyFooter text={getMessageText(msg)} timestamp={msg._creationTime} />
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-end pt-1">
+                              <div className="rounded-2xl rounded-tr-xs bg-[#ecece8] text-[var(--ink)] dark:bg-[#2a2a2d] dark:text-[#f3f3ee] px-3.5 py-2.5 text-[13px] leading-relaxed max-w-[90%] shadow-2xs">
+                                {msg.slides && msg.slides.length > 0 && (
+                                  <div className="mb-1.5 flex flex-wrap gap-1">
+                                    {msg.slides.map((slideNumber) => (
+                                      <span
+                                        key={slideNumber}
+                                        className="inline-flex items-center gap-1 rounded-md bg-black/10 px-2 py-0.5 text-[10px] dark:bg-white/10"
+                                      >
+                                        <PresentationIcon className="size-2.5" />
+                                        Slide {slideNumber}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {msg.files && msg.files.length > 0 && (
+                                  <div className="mb-1.5 flex flex-wrap gap-1">
+                                    {msg.files.map((file, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-1 rounded-md bg-black/10 dark:bg-white/10 px-2 py-0.5 text-[10px] text-inherit"
+                                      >
+                                        <FileText className="size-2.5" />
+                                        <span className="truncate max-w-[120px]">{file}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {getMessageText(msg).trim() && (
+                                  <p className="whitespace-pre-wrap">{getMessageText(msg)}</p>
+                                )}
                               </div>
-                              {msg.id === "initial-ai" && (
-                                <div className="mt-2 flex flex-wrap gap-1.5 pt-2">
-                                  {SUGGESTED_PROMPTS.map((prompt) => (
-                                    <button
-                                      key={prompt}
-                                      type="button"
-                                      onClick={() => handleSendMessage(prompt.replace(/“|”/g, ""))}
-                                      className="rounded-full bg-light-gray px-2.5 py-1 text-[11px] text-[var(--muted)] hover:text-[var(--ink)] hover:bg-light-gray-hover transition-colors cursor-pointer"
-                                    >
-                                      {prompt}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex h-6 items-center gap-2 pt-0.5">
-                              <button
-                                type="button"
-                                onClick={() => navigator.clipboard?.writeText(msg.content)}
-                                className="cursor-pointer hover:text-[var(--ink)] transition-colors p-0.5"
-                                title="Copy"
-                              >
-                                <Copy className="size-3 text-[var(--muted)]" />
-                              </button>
-                              <span className="text-[10px] text-[var(--muted)] font-medium">
-                                {msg.timestamp}
+                              <span className="text-[10px] text-[var(--muted)] font-medium mt-1 pr-1">
+                                {formatTimestamp(msg._creationTime)}
                               </span>
                             </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-end pt-1">
-                            <div className="rounded-2xl rounded-tr-xs bg-[#ecece8] text-[var(--ink)] dark:bg-[#2a2a2d] dark:text-[#f3f3ee] px-3.5 py-2.5 text-[13px] leading-relaxed max-w-[90%] shadow-2xs">
-                              {msg.slides && msg.slides.length > 0 && (
-                                <div className="mb-1.5 flex flex-wrap gap-1">
-                                  {msg.slides.map((slideNumber) => (
-                                    <span
-                                      key={slideNumber}
-                                      className="inline-flex items-center gap-1 rounded-md bg-black/10 px-2 py-0.5 text-[10px] dark:bg-white/10"
-                                    >
-                                      <PresentationIcon className="size-2.5" />
-                                      Slide {slideNumber}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {msg.files && msg.files.length > 0 && (
-                                <div className="mb-1.5 flex flex-wrap gap-1">
-                                  {msg.files.map((file, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 rounded-md bg-black/10 dark:bg-white/10 px-2 py-0.5 text-[10px] text-inherit"
-                                    >
-                                      <FileText className="size-2.5" />
-                                      <span className="truncate max-w-[120px]">{file}</span>
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {msg.content.trim() && <p className="whitespace-pre-wrap">{msg.content}</p>}
-                            </div>
-                            <span className="text-[10px] text-[var(--muted)] font-medium mt-1 pr-1">
-                              {msg.timestamp}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
                 </div>
@@ -1801,8 +1903,8 @@ export default function PresentationPage({
                       >
                         <SlidePreview
                           number={slideNumber}
-                          image={presentation?.image}
-                          title={SLIDE_TITLES[(slideNumber - 1) % SLIDE_TITLES.length]}
+                          image={slides[slideNumber - 1] ? getSlideImage(slides[slideNumber - 1].templateSlide) : undefined}
+                          title={slides[slideNumber - 1]?.title ?? SLIDE_TITLES[(slideNumber - 1) % SLIDE_TITLES.length]}
                           compact
                         />
                         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/45 to-transparent px-1.5 pb-1 pt-3 text-[9px] font-semibold text-white">
@@ -2022,7 +2124,8 @@ export default function PresentationPage({
                 type="button"
                 onClick={() => setActiveTab("presentation")}
                 className={cn(
-                  "justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:cursor-not-allowed hover:text-dark dark:hover:text-default relative flex h-[36px] shrink-0 cursor-pointer items-center gap-1.5 rounded-tl-lg rounded-tr-lg rounded-b-none bg-transparent px-4 py-[4px] animate-in fade-in duration-300",
+                  "justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:cursor-not-allowed hover:text-dark dark:hover:text-default relative flex h-[36px] shrink-0 cursor-pointer items-center gap-1.5 rounded-tl-lg rounded-tr-lg rounded-b-none bg-transparent px-4 py-[4px]",
+                  !loadedWithPresentation && "animate-in fade-in duration-300",
                   activeTab === "presentation"
                     ? "!bg-workspace-content text-default shadow-[0_-1px_10px_rgba(0,0,0,0.04)] hover:!bg-workspace-content dark:hover:!bg-workspace-content"
                     : "text-mute shadow-none hover:bg-white/40 dark:hover:bg-white/10"
@@ -2299,7 +2402,7 @@ export default function PresentationPage({
                       </button>
                     </div>
                     <div className="mt-3.5 flex h-10 items-center rounded-full border border-[var(--border)] bg-[var(--paper)] pl-3.5 pr-1 focus-within:border-[var(--accent)]">
-                      <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted)]">https://zicdeck.app/presentation/share/{id}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted)]">https://zicdeck.app/presentation/share/{presentationId}</span>
                       <div className="mx-2 h-5 w-px bg-[var(--border)]" />
                       <button
                         type="button"
@@ -2397,7 +2500,7 @@ export default function PresentationPage({
                           const isCurrent = currentSlide === slide.id;
                           return (
                             <button
-                              key={slide.id}
+                              key={slide.slideId}
                               ref={(el) => {
                                 thumbnailRefs.current[slide.id] = el;
                               }}
@@ -2415,6 +2518,7 @@ export default function PresentationPage({
                               <div className="size-full overflow-hidden rounded-[7px]">
                                 <SlidePreview
                                   number={index + 1}
+                                  image={getSlideImage(slide.templateSlide)}
                                   title={slide.title}
                                   compact
                                   delay={index * 80}
@@ -2435,7 +2539,7 @@ export default function PresentationPage({
                           const isCurrent = currentSlide === slide.id;
                           return (
                             <button
-                              key={slide.id}
+                              key={slide.slideId}
                               ref={(el) => {
                                 thumbnailRefs.current[slide.id] = el;
                               }}
@@ -2540,8 +2644,9 @@ export default function PresentationPage({
                     <div className="relative aspect-video w-full overflow-visible">
                       <div className="size-full overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-[0_20px_60px_rgba(20,21,26,0.08),0_4px_16px_rgba(20,21,26,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
                         <SlidePreview
-                          key={currentSlideNumber}
+                          key={currentSlideItem?.slideId ?? currentSlideNumber}
                           number={currentSlideNumber}
+                          image={currentSlideItem ? getSlideImage(currentSlideItem.templateSlide) : undefined}
                           title={currentSlideItem?.title || SLIDE_TITLES[currentSlideIndex % SLIDE_TITLES.length]}
                           delay={40}
                         />
@@ -2568,7 +2673,7 @@ export default function PresentationPage({
                     <div className="rounded-2xl bg-[var(--border)]/70 backdrop-blur-sm p-5 shadow-xs">
                       <div className="flex items-center justify-between pb-3.5">
                         <div className="font-['Figtree'] text-sm font-semibold text-[var(--ink)]">
-                          Account Health QBR
+                          {templateName}
                         </div>
                         <button
                           type="button"
@@ -2580,10 +2685,13 @@ export default function PresentationPage({
                       {/* 10 Slide Thumbnail Previews from public/example presentation loaded one by one */}
                       <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 overflow-hidden pt-1">
                         {EXAMPLE_SLIDE_IMAGES.map((imgSrc, idx) => (
-                          <div
+                          <button
                             key={idx}
-                            className="group/thumb relative aspect-[1.38] rounded-lg border border-[var(--border)] bg-[var(--paper)] overflow-hidden shadow-2xs transition-all hover:scale-105 hover:border-[var(--muted)]/50 hover:shadow-xs cursor-pointer"
-                            title={`Template slide ${idx + 1}`}
+                            type="button"
+                            onClick={() => setTemplatePreviewIndex(idx)}
+                            className="group/thumb relative aspect-[1.38] rounded-lg border border-[var(--border)] bg-[var(--paper)] overflow-hidden shadow-2xs transition-all hover:scale-105 hover:border-[var(--muted)]/50 hover:shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            title={`Preview template page ${idx + 1}`}
+                            aria-label={`Preview template page ${idx + 1}`}
                           >
                             <SlidePreview
                               number={idx + 1}
@@ -2596,7 +2704,7 @@ export default function PresentationPage({
                                 #{idx + 1}
                               </span>
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -2626,13 +2734,13 @@ export default function PresentationPage({
                     <Reorder.Group
                       as="div"
                       axis="y"
-                      values={outlineItems}
+                      values={outlineItems.map((item) => item._id)}
                       onReorder={handleReorder}
                       className="space-y-3.5"
                     >
                       {outlineItems.map((item, index) => (
                         <OutlineCardItem
-                          key={item.id}
+                          key={item._id}
                           item={item}
                           index={index}
                           total={outlineItems.length}
@@ -2653,6 +2761,7 @@ export default function PresentationPage({
                           onUpdateAttachmentType={(val) => updateAttachmentType(index, val)}
                           onUpdateAttachmentTitle={(val) => updateAttachmentTitle(index, val)}
                           onDeleteSlide={() => handleDeleteOutlineItem(index)}
+                          onDragEnd={handleReorderEnd}
                         />
                       ))}
                     </Reorder.Group>

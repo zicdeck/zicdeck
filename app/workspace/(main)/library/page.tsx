@@ -19,13 +19,32 @@ import {
   Plus,
   FolderOpen,
 } from "lucide-react";
+import { useConvexAuth, useMutation, usePaginatedQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import {
   LibraryItem,
-  INITIAL_OUTPUTS,
   INITIAL_UPLOADED,
   FILTER_OPTIONS,
 } from "@/lib/library-data";
+
+const PAGE_SIZE = 24;
+const PRESENTATION_THUMBNAIL = "/example%20presentation/1.png";
+
+const STATUS_LABELS: Record<Doc<"presentations">["status"], string> = {
+  generating: "Drafting outline",
+  outline_ready: "Outline",
+  presentation_ready: "Presentation",
+};
+
+function formatDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -34,8 +53,36 @@ export default function LibraryPage() {
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [items, setItems] = useState<LibraryItem[]>(INITIAL_OUTPUTS);
   const [uploadedItems, setUploadedItems] = useState<LibraryItem[]>(INITIAL_UPLOADED);
+
+  // Outputs are the presentations saved in Convex; uploads are still local only.
+  const { isAuthenticated } = useConvexAuth();
+  const {
+    results: presentations,
+    status: presentationsStatus,
+    loadMore,
+  } = usePaginatedQuery(api.presentations.list, isAuthenticated ? {} : "skip", {
+    initialNumItems: PAGE_SIZE,
+  });
+  const removePresentation = useMutation(api.presentations.remove);
+  const duplicatePresentation = useMutation(api.presentations.duplicate);
+
+  const items: LibraryItem[] = React.useMemo(
+    () =>
+      presentations.map((p) => ({
+        id: p._id,
+        title: p.title,
+        date: `${formatDate(p.updatedAt)} · ${STATUS_LABELS[p.status]}`,
+        category: "Presentations",
+        type: "slides",
+        aspect: "full",
+        image: PRESENTATION_THUMBNAIL,
+      })),
+    [presentations]
+  );
+  const isLoadingOutputs =
+    activeTab === "outputs" &&
+    (!isAuthenticated || presentationsStatus === "LoadingFirstPage");
 
   const filterRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,7 +146,9 @@ export default function LibraryPage() {
 
   const handleDeleteItem = (id: string) => {
     if (activeTab === "outputs") {
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      removePresentation({ presentationId: id as Id<"presentations"> }).catch((error) =>
+        console.error("Failed to delete presentation", error)
+      );
     } else {
       setUploadedItems((prev) => prev.filter((item) => item.id !== id));
     }
@@ -107,17 +156,20 @@ export default function LibraryPage() {
   };
 
   const handleDuplicateItem = (item: LibraryItem) => {
+    if (activeTab === "outputs") {
+      duplicatePresentation({ presentationId: item.id as Id<"presentations"> }).catch((error) =>
+        console.error("Failed to copy presentation", error)
+      );
+      setActiveMenuId(null);
+      return;
+    }
     const duplicate: LibraryItem = {
       ...item,
       id: `${item.id}-copy`,
       title: `${item.title} (Copy)`,
       date: "Sep 22, 2026",
     };
-    if (activeTab === "outputs") {
-      setItems((prev) => [duplicate, ...prev]);
-    } else {
-      setUploadedItems((prev) => [duplicate, ...prev]);
-    }
+    setUploadedItems((prev) => [duplicate, ...prev]);
     setActiveMenuId(null);
   };
 
@@ -319,7 +371,11 @@ export default function LibraryPage() {
           {/* Main Content Area */}
           <div className="flex min-h-0 flex-1 px-6">
             <div className="mx-auto flex w-full max-w-[1120px] min-h-0 flex-1 flex-col">
-              {filteredItems.length === 0 ? (
+              {isLoadingOutputs ? (
+                <div className="flex flex-1 items-center justify-center py-20">
+                  <div className="size-5 rounded-full border-2 border-[var(--muted)]/25 border-t-[var(--ink)] animate-spin" />
+                </div>
+              ) : filteredItems.length === 0 ? (
                 /* Empty state when no items match */
                 <div className="flex flex-1 flex-col items-center justify-center py-20 text-center">
                   <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-light-gray text-mute">
@@ -335,11 +391,15 @@ export default function LibraryPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() =>
+                      activeTab === "outputs"
+                        ? router.push("/workspace/new-task")
+                        : fileInputRef.current?.click()
+                    }
                     className="mt-5 inline-flex items-center gap-2 rounded-full border border-default bg-dark px-4 py-2 text-xs font-medium text-dark-foreground transition-all hover:bg-dark/90 cursor-pointer"
                   >
                     <Plus className="size-3.5" />
-                    Upload file
+                    {activeTab === "outputs" ? "New presentation" : "Upload file"}
                   </button>
                 </div>
               ) : viewMode === "grid" ? (
@@ -599,6 +659,18 @@ export default function LibraryPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {activeTab === "outputs" && presentationsStatus === "CanLoadMore" && (
+                <div className="flex justify-center pt-6">
+                  <button
+                    type="button"
+                    onClick={() => loadMore(PAGE_SIZE)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-xs font-medium text-default hover:bg-light-gray-hover transition-colors cursor-pointer"
+                  >
+                    Load more
+                  </button>
                 </div>
               )}
             </div>

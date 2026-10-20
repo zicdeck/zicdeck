@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import {
   PanelLeftClose,
   PanelRightClose,
@@ -12,7 +14,6 @@ import {
   LibraryBig,
   ChevronDown,
   ChevronRight,
-  Ellipsis,
   MonitorSmartphone,
   Rocket,
   Clock2,
@@ -29,17 +30,27 @@ import { cn } from "@/lib/utils";
 import { useWorkspacePricingModal } from "./WorkspacePricingModalContext";
 import { useWorkspaceTheme } from "./WorkspaceThemeContext";
 
-interface TaskItem {
-  id: string;
-  title: string;
-  type: "doc" | "slides" | "chart";
+/** Screen-with-chart icon used for presentations in the tree. */
+function PresentationGlyph() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="none"
+      viewBox="0 0 16 16"
+      className="size-4"
+    >
+      <rect width="12.667" height="9.333" x="2" y="2" stroke="currentColor" rx="2.667" />
+      <path
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m4.333 9 2.333-2.666 2.667 2 3-3.667M5 14.667l3.333-3 3.334 3"
+      />
+    </svg>
+  );
 }
-
-const SAMPLE_TASKS: TaskItem[] = [
-  { id: "1", title: "ZicDeck Product Guide", type: "doc" },
-  { id: "2", title: "ZicDeck Product Introduction", type: "slides" },
-  { id: "3", title: "ZicDeck Presentation Workflow", type: "chart" },
-];
 
 export function WorkspaceSidebar() {
   const pathname = usePathname();
@@ -49,7 +60,19 @@ export function WorkspaceSidebar() {
   const { theme, toggleTheme } = useWorkspaceTheme();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [tasksCollapsed, setTasksCollapsed] = useState(false);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
+  const toggleFolder = (folderKey: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderKey)) next.delete(folderKey);
+      else next.add(folderKey);
+      return next;
+    });
+  };
+
+  // Folders with their saved presentations, live from Convex.
+  const { isAuthenticated } = useConvexAuth();
+  const folders = useQuery(api.presentations.listByFolder, isAuthenticated ? {} : "skip");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -133,19 +156,22 @@ export function WorkspaceSidebar() {
             {/* Collapsed Task Item */}
             <div className="relative min-h-0 w-full flex-1 pt-4 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex flex-col items-center gap-2 pb-2 pt-1">
-                <button
-                  type="button"
-                  title="Welcome to ZicDeck"
-                  onClick={() => setIsCollapsed(false)}
-                  className="group flex h-fit w-full cursor-pointer flex-col items-center gap-1 rounded-lg p-1 text-center transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                >
-                  <span className="relative flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-2xs transition-colors">
-                    <ClipboardCheck className="size-4" strokeWidth={1.8} />
-                  </span>
-                  <span className="block w-full truncate text-[10px] font-normal font-sans leading-3 text-[var(--muted)]">
-                    Welcome
-                  </span>
-                </button>
+                {folders?.map((folder) => (
+                  <button
+                    key={folder.id ?? "default"}
+                    type="button"
+                    title={folder.name}
+                    onClick={() => setIsCollapsed(false)}
+                    className="group flex h-fit w-full cursor-pointer flex-col items-center gap-1 rounded-lg p-1 text-center transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                  >
+                    <span className="relative flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-2xs transition-colors">
+                      <ClipboardCheck className="size-4" strokeWidth={1.8} />
+                    </span>
+                    <span className="block w-full truncate text-[10px] font-normal font-sans leading-3 text-[var(--muted)]">
+                      {folder.name.split(" ")[0]}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -255,119 +281,80 @@ export function WorkspaceSidebar() {
               {/* Scrollable Tree Area */}
               <div className="relative min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="space-y-[2px]">
-                  <div>
-                    {/* Folder Row */}
-                    <div className="group/task-item flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-start text-[var(--ink)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
-                      <button
-                        type="button"
-                        onClick={() => setTasksCollapsed((prev) => !prev)}
-                        aria-label={tasksCollapsed ? "Expand task" : "Collapse task"}
-                        className="flex size-4 shrink-0 cursor-pointer items-center justify-center text-[var(--muted)] hover:text-[var(--ink)]"
-                      >
-                        {tasksCollapsed ? (
-                          <ChevronRight className="size-4" strokeWidth={1.8} />
-                        ) : (
-                          <ChevronDown className="size-4" strokeWidth={1.8} />
-                        )}
-                      </button>
-                      <span className="min-w-0 flex-1 truncate text-sm font-normal font-sans leading-5 text-[var(--ink)] text-start">
-                        Welcome to ZicDeck
-                      </span>
-                      <button
-                        type="button"
-                        aria-label="More"
-                        className="inline-flex size-6 items-center justify-center rounded-lg text-[var(--muted)] opacity-0 group-hover/task-item:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-[var(--ink)] transition-opacity cursor-pointer"
-                      >
-                        <Ellipsis className="size-4" strokeWidth={1.8} />
-                      </button>
+                  {folders === undefined ? (
+                    <div className="flex h-9 items-center px-2">
+                      <div className="size-3.5 rounded-full border-2 border-[var(--muted)]/25 border-t-[var(--ink)] animate-spin" />
                     </div>
-
-                    {/* Sub-items */}
-                    {!tasksCollapsed && (
-                      <div className="mt-[2px] space-y-[2px] ps-4">
-                        {SAMPLE_TASKS.map((task) => (
+                  ) : folders.length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-[var(--muted)]">
+                      Your presentations will show up here.
+                    </p>
+                  ) : (
+                    folders.map((folder) => {
+                      const folderKey = folder.id ?? "default";
+                      const isFolderCollapsed = collapsedFolders.has(folderKey);
+                      return (
+                        <div key={folderKey}>
+                          {/* Folder Row */}
                           <div
-                            key={task.id}
                             role="button"
                             tabIndex={0}
-                            className="group/task-item flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-start text-[var(--ink)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                            aria-expanded={!isFolderCollapsed}
+                            onClick={() => toggleFolder(folderKey)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleFolder(folderKey);
+                              }
+                            }}
+                            className="group/task-item flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-start text-[var(--ink)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                           >
                             <span className="flex size-4 shrink-0 items-center justify-center text-[var(--muted)]">
-                              {task.type === "doc" && (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="16"
-                                  height="16"
-                                  fill="none"
-                                  viewBox="0 0 16 16"
-                                  className="size-4"
-                                >
-                                  <path
-                                    stroke="currentColor"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M9.333 1.333V4a1.333 1.333 0 0 0 1.334 1.333h2.666M6.667 6H5.333m5.334 2.667H5.333m5.334 2.666H5.333m4.667-10H4a1.333 1.333 0 0 0-1.333 1.334v10.666A1.333 1.333 0 0 0 4 14.667h8a1.333 1.333 0 0 0 1.333-1.334V4.667z"
-                                  />
-                                </svg>
-                              )}
-                              {task.type === "slides" && (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="16"
-                                  height="16"
-                                  fill="none"
-                                  viewBox="0 0 16 16"
-                                  className="size-4"
-                                >
-                                  <path
-                                    stroke="currentColor"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M12.666 11.333v-8A1.333 1.333 0 0 0 11.333 2H2.666m0 0A1.333 1.333 0 0 1 4 3.333v9.334A1.333 1.333 0 0 0 5.333 14M2.666 2a1.333 1.333 0 0 0-1.333 1.333v1.334A.667.667 0 0 0 2 5.333h2M5.333 14h8a1.333 1.333 0 0 0 1.333-1.333V12a.667.667 0 0 0-.666-.667H7.333a.667.667 0 0 0-.667.667v.667A1.333 1.333 0 0 1 5.333 14"
-                                  />
-                                </svg>
-                              )}
-                              {task.type === "chart" && (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="16"
-                                  height="16"
-                                  fill="none"
-                                  viewBox="0 0 16 16"
-                                  className="size-4"
-                                >
-                                  <rect
-                                    width="12.667"
-                                    height="9.333"
-                                    x="2"
-                                    y="2"
-                                    stroke="currentColor"
-                                    rx="2.667"
-                                  />
-                                  <path
-                                    stroke="currentColor"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="m4.333 9 2.333-2.666 2.667 2 3-3.667M5 14.667l3.333-3 3.334 3"
-                                  />
-                                </svg>
+                              {isFolderCollapsed ? (
+                                <ChevronRight className="size-4" strokeWidth={1.8} />
+                              ) : (
+                                <ChevronDown className="size-4" strokeWidth={1.8} />
                               )}
                             </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-normal font-sans leading-5 text-[var(--ink)] text-start">
-                              {task.title}
+                              {folder.name}
                             </span>
-                            <button
-                              type="button"
-                              aria-label="More"
-                              className="inline-flex size-6 items-center justify-center rounded-lg text-[var(--muted)] opacity-0 group-hover/task-item:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-[var(--ink)] transition-opacity cursor-pointer"
-                            >
-                              <Ellipsis className="size-4" strokeWidth={1.8} />
-                            </button>
+                            <span className="text-[11px] text-[var(--muted)] opacity-0 group-hover/task-item:opacity-100 transition-opacity">
+                              {folder.presentations.length}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+
+                          {/* Presentations in this folder */}
+                          {!isFolderCollapsed && (
+                            <div className="mt-[2px] space-y-[2px] ps-4">
+                              {folder.presentations.length === 0 && (
+                                <p className="px-2 py-1.5 text-xs text-[var(--muted)]">No presentations yet</p>
+                              )}
+                              {folder.presentations.map((item) => (
+                                <Link
+                                  key={item._id}
+                                  href={`/workspace/${item._id}`}
+                                  title={item.title}
+                                  className="group/task-item flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-start text-[var(--ink)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                                >
+                                  <span className="flex size-4 shrink-0 items-center justify-center text-[var(--muted)]">
+                                    {item.status === "generating" ? (
+                                      <span className="size-3 rounded-full border-2 border-[var(--muted)]/30 border-t-[var(--ink)] animate-spin" />
+                                    ) : (
+                                      <PresentationGlyph />
+                                    )}
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-sm font-normal font-sans leading-5 text-[var(--ink)] text-start">
+                                    {item.title}
+                                  </span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

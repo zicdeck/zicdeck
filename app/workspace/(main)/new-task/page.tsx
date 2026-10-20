@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConvexAuth, useMutation } from "convex/react";
 import Image from "next/image";
 import {
   Clock2,
@@ -14,6 +15,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { ChatComposer } from "@/components/ChatComposer";
+import { api } from "@/convex/_generated/api";
 import { useWorkspacePricingModal } from "@/components/workspace/WorkspacePricingModalContext";
 import { useWorkspaceTheme } from "@/components/workspace/WorkspaceThemeContext";
 import { cn } from "@/lib/utils";
@@ -233,14 +235,30 @@ export default function NewTaskPage() {
   const { theme } = useWorkspaceTheme();
   const [selectedCategory, setSelectedCategory] = useState("All Showcases");
 
-  const handlePromptSubmit = (message: string) => {
+  const createPresentation = useMutation(api.presentations.create);
+  const { isAuthenticated } = useConvexAuth();
+  const isSubmittingRef = useRef(false);
+
+  const handlePromptSubmit = async (message: string, files: File[] = [], model = "free") => {
     const trimmed = message.trim();
-    if (!trimmed) return;
-    const fakeId = `deck-${Date.now().toString(36)}`;
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(`prompt_${fakeId}`, trimmed);
+    if (!trimmed || isSubmittingRef.current) return;
+    // Convex only knows who the user is once Clerk's token has reached it.
+    if (!isAuthenticated) {
+      console.error("Not signed in to Convex yet; check the Clerk \"convex\" JWT template.");
+      return;
     }
-    router.push(`/workspace/${fakeId}?prompt=${encodeURIComponent(trimmed)}`);
+    isSubmittingRef.current = true;
+    try {
+      const presentationId = await createPresentation({
+        prompt: trimmed,
+        model,
+        files: files.map((file) => file.name),
+      });
+      router.push(`/workspace/${presentationId}`);
+    } catch (error) {
+      isSubmittingRef.current = false;
+      console.error("Failed to start presentation", error);
+    }
   };
 
   const filteredShowcases = SHOWCASE_ITEMS.filter((item) =>
@@ -341,7 +359,7 @@ export default function NewTaskPage() {
             {/* ChatComposer Box */}
             <ChatComposer
               placeholder="Describe your topic or idea, or upload your files (doc, pdf, pptx, txt)…"
-              onSubmit={(message) => handlePromptSubmit(message)}
+              onSubmit={(message, files, model) => handlePromptSubmit(message, files, model)}
               className="w-full rounded-[24px] border-[0.5px] border-[var(--border)] bg-white dark:bg-[var(--surface)] p-4 text-start shadow-[0_-6px_12px_rgba(0,0,0,0.03),0_14px_28px_rgba(0,0,0,0.03)] dark:shadow-none backdrop-blur-[20px] md:rounded-[32px] md:p-5"
             />
 
